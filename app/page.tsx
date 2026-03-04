@@ -30,18 +30,21 @@ function formatMarketCap(value: number | null): string {
   return `$${value.toLocaleString()}`;
 }
 
-function formatRelativeDate(dateStr: string | null): string {
+function formatLastSweep(dateStr: string | null): string {
   if (!dateStr) return '—';
   const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return 'Today';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays === 1) return '1d ago';
   if (diffDays < 7) return `${diffDays}d ago`;
   if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
   if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
-  return `${Math.floor(diffDays / 365)}y ago`;
+  return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function getRating(company: Company): string {
@@ -105,44 +108,45 @@ export default function CoveragePage() {
     [sortKey]
   );
 
-  const sorted = [...companies]
-    .filter(c => {
-      if (!filter) return true;
-      const q = filter.toLowerCase();
-      return (
-        c.name.toLowerCase().includes(q) ||
-        c.ticker.toLowerCase().includes(q) ||
-        (c.sector ?? '').toLowerCase().includes(q) ||
-        (c.agent_name ?? '').toLowerCase().includes(q) ||
-        c.country.toLowerCase().includes(q)
-      );
-    })
-    .sort((a, b) => {
-      let aVal: string | number | null = null;
-      let bVal: string | number | null = null;
+  const filtered = companies.filter(c => {
+    if (!filter) return true;
+    const q = filter.toLowerCase();
+    return (
+      c.name.toLowerCase().includes(q) ||
+      c.ticker.toLowerCase().includes(q) ||
+      (c.sector ?? '').toLowerCase().includes(q) ||
+      (c.agent_name ?? '').toLowerCase().includes(q) ||
+      c.country.toLowerCase().includes(q) ||
+      (c.exchange ?? '').toLowerCase().includes(q)
+    );
+  });
 
-      if (sortKey === 'rating') {
-        aVal = getRating(a);
-        bVal = getRating(b);
-      } else if (sortKey === 'last_sweep') {
-        aVal = a.last_sweep ? new Date(a.last_sweep).getTime() : 0;
-        bVal = b.last_sweep ? new Date(b.last_sweep).getTime() : 0;
-      } else if (sortKey === 'market_cap_usd') {
-        aVal = a.market_cap_usd ?? -1;
-        bVal = b.market_cap_usd ?? -1;
-      } else {
-        aVal = (a[sortKey as keyof Company] as string | null) ?? '';
-        bVal = (b[sortKey as keyof Company] as string | null) ?? '';
-      }
+  const sorted = [...filtered].sort((a, b) => {
+    let aVal: string | number | null = null;
+    let bVal: string | number | null = null;
 
-      if (typeof aVal === 'number' && typeof bVal === 'number') {
-        return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
-      }
-      const aStr = String(aVal ?? '');
-      const bStr = String(bVal ?? '');
-      const cmp = aStr.localeCompare(bStr);
-      return sortDir === 'asc' ? cmp : -cmp;
-    });
+    if (sortKey === 'rating') {
+      aVal = getRating(a);
+      bVal = getRating(b);
+    } else if (sortKey === 'last_sweep') {
+      aVal = a.last_sweep ? new Date(a.last_sweep).getTime() : 0;
+      bVal = b.last_sweep ? new Date(b.last_sweep).getTime() : 0;
+    } else if (sortKey === 'market_cap_usd') {
+      aVal = a.market_cap_usd ?? -1;
+      bVal = b.market_cap_usd ?? -1;
+    } else {
+      aVal = (a[sortKey as keyof Company] as string | null) ?? '';
+      bVal = (b[sortKey as keyof Company] as string | null) ?? '';
+    }
+
+    if (typeof aVal === 'number' && typeof bVal === 'number') {
+      return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
+    }
+    const aStr = String(aVal ?? '');
+    const bStr = String(bVal ?? '');
+    const cmp = aStr.localeCompare(bStr);
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
 
   const thStyle: React.CSSProperties = {
     cursor: 'pointer',
@@ -153,7 +157,7 @@ export default function CoveragePage() {
   return (
     <div style={{ padding: '2rem 1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '2.5rem', paddingTop: '1rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '2rem', paddingTop: '1rem' }}>
         <KabutenLogo />
         <p
           style={{
@@ -162,33 +166,78 @@ export default function CoveragePage() {
             color: '#9b9b97',
             letterSpacing: '0.12em',
             textTransform: 'uppercase',
-            marginTop: '0.75rem',
+            marginTop: '0.5rem',
+            marginBottom: '0.25rem',
           }}
         >
-          Coverage Universe — {companies.length} companies
+          Coverage Universe
+        </p>
+        <p
+          style={{
+            fontFamily: "'IBM Plex Mono', monospace",
+            fontSize: '0.6875rem',
+            color: '#c4c4c0',
+            letterSpacing: '0.08em',
+          }}
+        >
+          219 companies tracked across 17 sectors
         </p>
       </div>
 
       {/* Filter input */}
-      <div style={{ marginBottom: '1rem' }}>
-        <input
-          type="text"
-          value={filter}
-          onChange={e => setFilter(e.target.value)}
-          placeholder="Filter by name, ticker, sector, country..."
-          style={{
-            width: '100%',
-            maxWidth: '400px',
-            padding: '8px 12px',
-            fontFamily: "'IBM Plex Mono', monospace",
-            fontSize: '0.8125rem',
-            border: '1.5px solid #e2e2e0',
-            borderRadius: '6px',
-            outline: 'none',
-            color: '#0f0f0e',
-            backgroundColor: '#ffffff',
-          }}
-        />
+      <div style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ position: 'relative', flex: '1', maxWidth: '480px' }}>
+          <span
+            style={{
+              position: 'absolute',
+              left: '10px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: '#9b9b97',
+              fontSize: '0.875rem',
+              pointerEvents: 'none',
+            }}
+          >
+            ⌕
+          </span>
+          <input
+            type="text"
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="Filter by name, ticker, sector, country, exchange..."
+            style={{
+              width: '100%',
+              padding: '9px 12px 9px 30px',
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: '0.8125rem',
+              border: '1.5px solid #e2e2e0',
+              borderRadius: '8px',
+              outline: 'none',
+              color: '#0f0f0e',
+              backgroundColor: '#ffffff',
+              boxSizing: 'border-box',
+              transition: 'border-color 0.15s',
+            }}
+            onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#0f0f0e'; }}
+            onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e2e2e0'; }}
+          />
+        </div>
+        {filter && (
+          <button
+            onClick={() => setFilter('')}
+            style={{
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: '0.75rem',
+              color: '#9b9b97',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px 8px',
+            }}
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -341,7 +390,7 @@ export default function CoveragePage() {
                         style={{
                           fontFamily: "'IBM Plex Mono', monospace",
                           fontSize: '0.75rem',
-                          color: '#6b6b67',
+                          color: company.market_cap_usd ? '#6b6b67' : '#9b9b97',
                         }}
                       >
                         {formatMarketCap(company.market_cap_usd)}
@@ -355,10 +404,10 @@ export default function CoveragePage() {
                         style={{
                           fontFamily: "'IBM Plex Mono', monospace",
                           fontSize: '0.75rem',
-                          color: '#9b9b97',
+                          color: company.last_sweep ? '#6b6b67' : '#9b9b97',
                         }}
                       >
-                        {formatRelativeDate(company.last_sweep)}
+                        {formatLastSweep(company.last_sweep)}
                       </span>
                     </td>
                   </tr>
@@ -376,7 +425,7 @@ export default function CoveragePage() {
                   color: '#9b9b97',
                 }}
               >
-                No companies match your filter.
+                No companies match &ldquo;{filter}&rdquo;.
               </div>
             )}
           </div>
@@ -392,7 +441,9 @@ export default function CoveragePage() {
           textAlign: 'right',
         }}
       >
-        {sorted.length} of {companies.length} companies shown
+        {filter
+          ? `${sorted.length} of ${companies.length} companies shown`
+          : `${companies.length} companies`}
       </div>
     </div>
   );
