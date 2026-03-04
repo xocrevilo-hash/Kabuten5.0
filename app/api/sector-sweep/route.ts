@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import anthropic from '@/lib/claude';
 import sql from '@/lib/db';
-import { getAgent, AGENTS } from '@/lib/agents-config';
+import { getAgent } from '@/lib/agents-config';
 
 // FORGE batches (17 companies → 3 batches)
 const FORGE_BATCHES = [
@@ -9,6 +9,65 @@ const FORGE_BATCHES = [
   ['6361.T', '7741.T', 'KLAC', '6525.T', 'LRCX', '6920.T'],
   ['6323.T', '7735.T', '8035.T', '7729.T', '002371.SZ'],
 ];
+
+async function getBloombergBlock(tickers: string[]): Promise<string> {
+  try {
+    const rows = await sql`
+      SELECT ticker, px_last, fwd_pe, ev_ebitda,
+             consensus_eps_fy1, consensus_eps_fy2,
+             target_price_mean, target_price_high, target_price_low,
+             buy_count, hold_count, sell_count,
+             short_interest_ratio, next_earnings_date,
+             ytd_return, updated_at
+      FROM bloomberg_data
+      WHERE ticker = ANY(${tickers}::text[])
+      AND updated_at > NOW() - INTERVAL '48 hours'
+    `;
+
+    if (rows.length === 0) return '';
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const typedRows = rows as any[];
+    const staleOrMissing = tickers.filter(t => !typedRows.find(r => r.ticker === t));
+
+    const fmt = (v: number | null | undefined, prefix = '', suffix = '', dec = 1) =>
+      v !== null && v !== undefined ? `${prefix}${Number(v).toFixed(dec)}${suffix}` : '—';
+
+    const lines = typedRows.map((r) => {
+      const parts = [
+        `${r.ticker}: ${fmt(r.px_last, '$')}`,
+        r.fwd_pe ? `Fwd P/E ${fmt(r.fwd_pe, '', 'x')}` : null,
+        r.ev_ebitda ? `EV/EBITDA ${fmt(r.ev_ebitda, '', 'x')}` : null,
+        (r.consensus_eps_fy1 || r.consensus_eps_fy2) ?
+          `EPS ${fmt(r.consensus_eps_fy1, '$')} FY1 / ${fmt(r.consensus_eps_fy2, '$')} FY2` : null,
+        r.target_price_mean ?
+          `TP ${fmt(r.target_price_mean, '$')} (${fmt(r.target_price_high, '$')} hi / ${fmt(r.target_price_low, '$')} lo)` : null,
+        (r.buy_count !== null) ?
+          `${r.buy_count ?? 0}B/${r.hold_count ?? 0}H/${r.sell_count ?? 0}S` : null,
+        r.short_interest_ratio ? `SI ${fmt(r.short_interest_ratio, '', '%')}` : null,
+        r.next_earnings_date ? `Earnings: ${r.next_earnings_date}` : null,
+        r.ytd_return ? `YTD ${fmt(r.ytd_return, '', '%')}` : null,
+      ].filter(Boolean).join(' | ');
+      return parts;
+    });
+
+    const today = new Date().toISOString().slice(0, 10);
+    let block = `\n═══════════════════════════════════════════
+BLOOMBERG DATA (as of ${today})
+═══════════════════════════════════════════
+
+${lines.join('\n')}`;
+
+    if (staleOrMissing.length > 0) {
+      block += `\n\nNote: Bloomberg data unavailable for: ${staleOrMissing.join(', ')}. Rely on web search for these names.`;
+    }
+
+    return block + '\n';
+  } catch (err) {
+    console.error('Bloomberg data fetch error:', err);
+    return '';
+  }
+}
 
 async function runSweep(agentKey: string, tickers: string[], companies: string[]): Promise<{
   companies: Array<{
@@ -50,6 +109,9 @@ Top Risk: ${Array.isArray(brief.risks) ? brief.risks[0] : 'None'}
 Current Ratings: ${JSON.stringify(brief.ratings || {})}`
     : 'No prior view established yet. This is the first sweep.';
 
+  // Fetch Bloomberg data for covered companies
+  const bloombergBlock = await getBloombergBlock(tickers);
+
   const sweepPrompt = `You are ${agent.agent_name}, an elite AI sector analyst covering ${agent.sector_name}.
 
 Coverage universe: ${coverageList}
@@ -57,7 +119,7 @@ Today: ${today}
 
 PRIOR VIEW (evolve — don't discard):
 ${priorView}
-
+${bloombergBlock}
 ═══════════════════════════════════════════
 ANALYTICAL FRAMEWORK
 ═══════════════════════════════════════════
