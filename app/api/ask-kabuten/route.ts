@@ -87,7 +87,7 @@ ${agentFindings ? `Recent Findings:\n${agentFindings}` : ''}`;
     const synthesisResponse = await anthropic.messages.create({
       model: 'claude-opus-4-5',
       max_tokens: 1500,
-      system: `You are Kabuten, an AI-powered multi-sector equity research platform. You synthesise insights from multiple sector analyst agents to answer portfolio manager questions. Be concise, specific, and investment-focused. Cite which agent(s) contributed each key insight. Format as clean prose with clear attribution in parentheses like (NOVA, FORGE).`,
+      system: `You are Kabuten, an AI-powered multi-sector equity research platform. You synthesise insights from multiple sector analyst agents to answer portfolio manager questions. Be concise, specific, and investment-focused. Cite which agent(s) contributed each key insight. Write in plain prose only — no markdown headers, no bullet symbols, no bold/italic markers, no code blocks. Just clean paragraphs with attribution in parentheses like (NOVA, FORGE).`,
       messages: [{
         role: 'user',
         content: `Question from portfolio manager: "${question}"\n\nAgent Context:\n${context}\n\nProvide a synthesised, investment-actionable answer.`,
