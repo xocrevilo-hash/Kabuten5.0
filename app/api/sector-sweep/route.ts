@@ -3,11 +3,15 @@ import anthropic from '@/lib/claude';
 import sql from '@/lib/db';
 import { getAgent } from '@/lib/agents-config';
 
-// FORGE batches (17 companies → 3 batches)
+// FORGE batches (6 ex-Japan companies → 1 batch)
 const FORGE_BATCHES = [
-  ['688082.SS', '6857.T', 'AMAT', '3711.TW', 'ASML', '6146.T'],
-  ['6361.T', '7741.T', 'KLAC', '6525.T', 'LRCX', '6920.T'],
-  ['6323.T', '7735.T', '8035.T', '7729.T', '002371.SZ'],
+  ['AMAT', '3711.TW', 'ASML', 'KLAC', 'LRCX', '002371.SZ'],
+];
+
+// FORGE_JP batches (10 Japan companies → 2 batches of 5)
+const FORGE_JP_BATCHES = [
+  ['6857.T', '6146.T', '7741.T', '6525.T', '6920.T'],
+  ['6323.T', '7735.T', '7729.T', '8035.T', '6361.T'],
 ];
 
 async function getBloombergBlock(tickers: string[]): Promise<string> {
@@ -245,9 +249,26 @@ export async function POST(req: NextRequest) {
     } | undefined;
 
     if (agentKey === 'forge') {
-      // FORGE: batch into 3 groups
+      // FORGE: run batches (1 batch of 6 ex-Japan)
       for (let i = 0; i < FORGE_BATCHES.length; i++) {
         const batchTickers = FORGE_BATCHES[i];
+        const batchCompanies = batchTickers.map(t => {
+          const idx = agent.tickers.indexOf(t);
+          return idx >= 0 ? agent.companies[idx] : t;
+        });
+
+        const result = await runSweep(agentKey, batchTickers, batchCompanies);
+        allCompanyResults = [...allCompanyResults, ...result.companies];
+        allSignals = [...allSignals, ...result.cross_company_signals];
+        if (result.brief_changed) {
+          latestBriefChanged = true;
+          latestProposedBrief = result.proposed_brief;
+        }
+      }
+    } else if (agentKey === 'forge_jp') {
+      // FORGE_JP: run 2 batches of 5 Japan companies
+      for (let i = 0; i < FORGE_JP_BATCHES.length; i++) {
+        const batchTickers = FORGE_JP_BATCHES[i];
         const batchCompanies = batchTickers.map(t => {
           const idx = agent.tickers.indexOf(t);
           return idx >= 0 ? agent.companies[idx] : t;
@@ -340,7 +361,7 @@ export async function POST(req: NextRequest) {
     const updatedHistory = [...history, sweepMessage];
 
     await sql`
-      UPDATE agent_threads 
+      UPDATE agent_threads
       SET thread_history = ${JSON.stringify(updatedHistory)}::jsonb
       WHERE agent_key = ${agentKey}
     `;

@@ -30,6 +30,7 @@ export default function NavBar() {
     { label: 'Sectors', href: '/sectors' },
     { label: 'Heatmap', href: '/heatmap' },
     { label: 'Podcasts', href: '/podcasts' },
+    { label: 'Help', href: '/help' },
   ];
 
   useEffect(() => {
@@ -194,7 +195,7 @@ export default function NavBar() {
               marginBottom: '1.25rem',
               lineHeight: 1.5,
             }}>
-              Cross-sector synthesis from all 17 analyst agents. Kabuten routes your question to
+              Cross-sector synthesis from all 20 analyst agents. Kabuten routes your question to
               the relevant agents and returns a synthesised answer with attribution.
             </p>
 

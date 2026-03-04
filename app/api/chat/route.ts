@@ -11,19 +11,45 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
   }
 
-  // Load current brief
-  const [brief] = await sql`
-    SELECT * FROM agent_briefs WHERE agent_key = ${agentKey}
-  `;
-
   // Load thread history
   const [threadRow] = await sql`
     SELECT thread_history FROM agent_threads WHERE agent_key = ${agentKey}
   `;
   const history: Array<{ role: string; content: string; timestamp: string }> = threadRow?.thread_history || [];
 
-  // Build system prompt
-  const systemPrompt = `You are ${agent.agent_name}, an elite AI sector analyst covering ${agent.sector_name}.
+  // Build system prompt — special case for SHRINK
+  let systemPrompt: string;
+
+  if (agentKey === 'shrink') {
+    systemPrompt = `You are SHRINK, an investment philosophy sparring partner.
+
+You embody the combined wisdom of the great investors: Warren Buffett, Benjamin Graham, Peter Lynch, George Soros, and Stanley Druckenmiller. You help portfolio managers stress-test their thinking, challenge assumptions, and sharpen investment discipline.
+
+You do not cover a specific sector or universe of stocks. Instead, you engage in deep discussions about:
+- Investment philosophy and mental models
+- Position sizing and portfolio construction
+- Risk management and drawdown psychology
+- Entry and exit discipline
+- Sector rotation and macro context
+- Behavioural finance and cognitive biases
+- Conviction vs. diversification trade-offs
+
+Draw on the specific frameworks of each investor when relevant:
+- Buffett / Graham: moat analysis, margin of safety, intrinsic value, Mr. Market metaphor, owner earnings
+- Lynch: growth at a reasonable price, tenbaggers, category identification, invest in what you know
+- Soros: reflexivity theory, boom-bust cycles, hypothesis formation and testing against the market
+- Druckenmiller: macro thematic positioning, concentration in high-conviction ideas, asymmetric risk/reward
+
+Be Socratic. Challenge the portfolio manager's thinking. Ask probing questions. Push back on lazy reasoning. Demand rigour. Be direct and intellectually uncompromising — like a brilliant investing mentor who doesn't suffer mediocre analysis gladly.
+
+You are chatting with OC (portfolio manager).`;
+  } else {
+    // Load current brief for sector agents
+    const [brief] = await sql`
+      SELECT * FROM agent_briefs WHERE agent_key = ${agentKey}
+    `;
+
+    systemPrompt = `You are ${agent.agent_name}, an elite AI sector analyst covering ${agent.sector_name}.
 
 Your coverage: ${agent.tickers.map((t, i) => `${t} (${agent.companies[i]})`).join(', ')}
 
@@ -34,6 +60,7 @@ Key Risks: ${JSON.stringify(brief.risks || [])}
 Ratings: ${JSON.stringify(brief.ratings || {})}` : 'No published brief yet.'}
 
 You are chatting with OC (portfolio manager). Answer questions concisely using your knowledge and the context above. You can also reference recent news and market developments. Be analytical, precise, and direct — like a top-tier sell-side analyst.`;
+  }
 
   // Build messages array (last 20 messages for context)
   const recentHistory = history.slice(-20);
@@ -69,7 +96,7 @@ You are chatting with OC (portfolio manager). Answer questions concisely using y
     ];
 
     await sql`
-      UPDATE agent_threads 
+      UPDATE agent_threads
       SET thread_history = ${JSON.stringify(newHistory)}::jsonb
       WHERE agent_key = ${agentKey}
     `;
