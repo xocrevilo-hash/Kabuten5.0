@@ -1,0 +1,275 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=DM+Sans:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --color-bg: #f8f8f6;
+  --color-surface: #ffffff;
+  --color-border: #e2e2e0;
+  --color-text-primary: #0f0f0e;
+  --color-text-secondary: #6b6b67;
+  --color-text-muted: #9b9b97;
+  --color-accent-green: #16a34a;
+  --color-accent-red: #dc2626;
+  --color-accent-amber: #d97706;
+  --color-accent-blue: #2563eb;
+  --color-accent-purple: #7c3aed;
+  --color-accent-teal: #0d9488;
+  --color-accent-pink: #db2777;
+  --color-accent-lime: #65a30d;
+  --color-accent-sky: #0284c7;
+  --color-accent-gold: #b45309;
+  --color-nav-height: 56px;
+}
+
+/* ─── Base ─────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* ─── Kanji wallpaper ───────────────────────────────────────── */
+
+.kanji-wallpaper {
+  position: relative;
+  min-height: 100vh;
+}
+
+.kanji-wallpaper::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Ctext x='10' y='55' font-family='serif' font-size='36' fill='rgba(0,0,0,0.055)' font-weight='700'%3E%E6%A0%AA%3C/text%3E%3Ctext x='65' y='110' font-family='serif' font-size='36' fill='rgba(0,0,0,0.055)' font-weight='700'%3E%E5%A4%A9%3C/text%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 120px 120px;
+}
+
+.kanji-wallpaper > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Content boxes ─────────────────────────────────────────── */
+
+.content-box {
+  background-color: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+/* ─── KABUTEN 3D wordmark ───────────────────────────────────── */
+
+.kabuten-wordmark {
+  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  font-weight: 800;
+  font-size: 3.5rem;
+  letter-spacing: -0.02em;
+  color: #0f0f0e;
+  text-shadow:
+    1px 1px 0 #3a2a0a,
+    2px 2px 0 #3a2a0a,
+    3px 3px 0 #4a3410,
+    4px 4px 0 #4a3410,
+    5px 5px 0 #5a3e16,
+    6px 6px 0 #5a3e16,
+    7px 7px 0 #6a481c,
+    8px 8px 0 #6a481c,
+    9px 9px 0 #7a5222,
+    10px 10px 0 #7a5222,
+    11px 11px 0 #8a5c28,
+    12px 12px 0 rgba(0, 0, 0, 0.15);
+  display: inline-block;
+  user-select: none;
+}
+
+/* ─── Monospace utility ─────────────────────────────────────── */
+
+.font-mono,
+code,
+pre,
+kbd,
+samp {
+  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+/* ─── Navigation ────────────────────────────────────────────── */
+
+.nav-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: var(--color-nav-height);
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  padding: 0 1.5rem;
+  gap: 2rem;
+}
+
+.nav-wordmark {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 800;
+  font-size: 1.125rem;
+  letter-spacing: -0.01em;
+  color: #0f0f0e;
+  text-decoration: none;
+  text-shadow:
+    1px 1px 0 #3a2a0a,
+    2px 2px 0 #4a3410,
+    3px 3px 0 #5a3e16,
+    4px 4px 0 #6a481c;
+}
+
+.nav-link {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+  letter-spacing: 0.02em;
+}
+
+.nav-link:hover {
+  color: var(--color-text-primary);
+}
+
+.nav-link.active {
+  color: var(--color-text-primary);
+}
+
+/* ─── Rating pills ──────────────────────────────────────────── */
+
+.pill-buy {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  background-color: #dcfce7;
+  color: #15803d;
+  letter-spacing: 0.04em;
+}
+
+.pill-neutral {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  background-color: #f3f4f6;
+  color: #6b7280;
+  letter-spacing: 0.04em;
+}
+
+.pill-sell {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  background-color: #fee2e2;
+  color: #b91c1c;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Table utilities ───────────────────────────────────────── */
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.data-table th {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.data-table th:hover {
+  color: var(--color-text-primary);
+}
+
+.data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f0ee;
+  color: var(--color-text-primary);
+  vertical-align: middle;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tr:hover td {
+  background-color: #fafaf8;
+}
+
+/* ─── Shake animation (password gate) ──────────────────────── */
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-6px); }
+  30% { transform: translateX(6px); }
+  45% { transform: translateX(-4px); }
+  60% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+  90% { transform: translateX(2px); }
+}
+
+.shake {
+  animation: shake 0.45s ease-out;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d1cd;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a19d;
+}
