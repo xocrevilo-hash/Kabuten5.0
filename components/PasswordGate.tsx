@@ -1,6 +1,16 @@
 'use client';
 
 import { useState, useEffect, useRef, ReactNode } from 'react';
+import KabutenLogo from '@/components/KabutenLogo';
+
+// Kanji wallpaper as inline SVG data-URI so it shows on the gate page
+// without relying on the ::before pseudo-element used on authenticated pages.
+// 160×160 tile, 株 top-left / 天 bottom-right, 52px serif, rgba(0,0,0,0.06)
+const KANJI_BG =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E" +
+  "%3Ctext x='8' y='72' font-family='serif' font-size='52' fill='rgba(0,0,0,0.06)'%3E%E6%A0%AA%3C/text%3E" +
+  "%3Ctext x='88' y='148' font-family='serif' font-size='52' fill='rgba(0,0,0,0.06)'%3E%E5%A4%A9%3C/text%3E" +
+  "%3C/svg%3E\")";
 
 interface PasswordGateProps {
   children: ReactNode;
@@ -13,13 +23,10 @@ export default function PasswordGate({ children }: PasswordGateProps) {
   const [error, setError] = useState('');
   const [hydrated, setHydrated] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const formRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('kabuten_auth');
-    if (stored === 'true') {
-      setAuthenticated(true);
-    }
+    if (stored === 'true') setAuthenticated(true);
     setHydrated(true);
   }, []);
 
@@ -43,20 +50,19 @@ export default function PasswordGate({ children }: PasswordGateProps) {
     }
   };
 
-  if (!hydrated) {
-    return null;
-  }
-
-  if (authenticated) {
-    return <>{children}</>;
-  }
+  if (!hydrated) return null;
+  if (authenticated) return <>{children}</>;
 
   return (
+    /* Full-screen wallpaper backdrop */
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: '#ffffff',
+        backgroundColor: '#FAFAF8',
+        backgroundImage: KANJI_BG,
+        backgroundRepeat: 'repeat',
+        backgroundSize: '160px 160px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -64,68 +70,27 @@ export default function PasswordGate({ children }: PasswordGateProps) {
         zIndex: 9999,
       }}
     >
+      {/* Card — logo + form, centred */}
       <div
-        ref={formRef}
         className={shaking ? 'shake' : ''}
         style={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: '2rem',
-          width: '100%',
-          maxWidth: '320px',
-          padding: '0 1.5rem',
+          gap: '1.75rem',
         }}
       >
-        {/* Wordmark */}
-        <div
-          style={{
-            fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
-            fontWeight: 800,
-            fontSize: '2.5rem',
-            letterSpacing: '-0.02em',
-            color: '#0f0f0e',
-            textShadow: `
-              1px 1px 0 #3a2a0a,
-              2px 2px 0 #3a2a0a,
-              3px 3px 0 #4a3410,
-              4px 4px 0 #4a3410,
-              5px 5px 0 #5a3e16,
-              6px 6px 0 #5a3e16,
-              7px 7px 0 #6a481c,
-              8px 8px 0 #6a481c,
-              9px 9px 0 #7a5222,
-              10px 10px 0 #7a5222
-            `,
-            userSelect: 'none',
-            marginBottom: '0.5rem',
-          }}
-        >
-          KABUTEN
-        </div>
+        {/* Animated shimmer wordmark */}
+        <KabutenLogo size="full" />
 
-        <div
-          style={{
-            fontFamily: "'IBM Plex Mono', monospace",
-            fontSize: '0.6875rem',
-            fontWeight: 500,
-            letterSpacing: '0.14em',
-            color: '#9b9b97',
-            textTransform: 'uppercase',
-            marginTop: '-1.5rem',
-          }}
-        >
-          AI Equity Research
-        </div>
-
-        {/* Form */}
+        {/* Password form */}
         <form
           onSubmit={handleSubmit}
           style={{
             display: 'flex',
             flexDirection: 'column',
             gap: '0.75rem',
-            width: '100%',
+            alignItems: 'center',
           }}
         >
           <input
@@ -136,34 +101,32 @@ export default function PasswordGate({ children }: PasswordGateProps) {
             placeholder="Password"
             autoComplete="current-password"
             style={{
-              width: '100%',
+              width: '280px',
               padding: '10px 14px',
               fontFamily: "'IBM Plex Mono', monospace",
               fontSize: '0.875rem',
-              border: '1.5px solid #e2e2e0',
+              textAlign: 'center',
+              border: '1.5px solid #d4d4d0',
               borderRadius: '6px',
               outline: 'none',
               color: '#0f0f0e',
-              backgroundColor: '#ffffff',
+              backgroundColor: 'rgba(255,255,255,0.85)',
               transition: 'border-color 0.15s ease',
             }}
-            onFocus={e => {
-              e.target.style.borderColor = '#0f0f0e';
-            }}
-            onBlur={e => {
-              e.target.style.borderColor = '#e2e2e0';
-            }}
+            onFocus={e => { e.target.style.borderColor = '#0f0f0e'; }}
+            onBlur={e  => { e.target.style.borderColor = '#d4d4d0'; }}
           />
 
           <button
             type="submit"
             style={{
-              width: '100%',
+              width: '280px',
               padding: '10px 14px',
               fontFamily: "'IBM Plex Mono', monospace",
               fontSize: '0.8125rem',
               fontWeight: 700,
-              letterSpacing: '0.06em',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
               backgroundColor: '#0f0f0e',
               color: '#ffffff',
               border: 'none',
@@ -171,27 +134,23 @@ export default function PasswordGate({ children }: PasswordGateProps) {
               cursor: 'pointer',
               transition: 'opacity 0.15s ease',
             }}
-            onMouseEnter={e => {
-              (e.target as HTMLButtonElement).style.opacity = '0.85';
-            }}
-            onMouseLeave={e => {
-              (e.target as HTMLButtonElement).style.opacity = '1';
-            }}
+            onMouseEnter={e => { (e.target as HTMLButtonElement).style.opacity = '0.82'; }}
+            onMouseLeave={e => { (e.target as HTMLButtonElement).style.opacity = '1'; }}
           >
             Enter
           </button>
         </form>
 
-        {/* Error message */}
+        {/* Error */}
         <div
           style={{
             fontFamily: "'IBM Plex Mono', monospace",
             fontSize: '0.75rem',
             color: '#dc2626',
             height: '1rem',
-            transition: 'opacity 0.2s ease',
-            opacity: error ? 1 : 0,
             marginTop: '-0.75rem',
+            opacity: error ? 1 : 0,
+            transition: 'opacity 0.2s ease',
           }}
         >
           {error || ' '}
