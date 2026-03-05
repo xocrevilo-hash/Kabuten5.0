@@ -54,6 +54,12 @@ export default function SectorsPage() {
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [showProposal, setShowProposal] = useState(false);
   const [sweeping, setSweeping] = useState(false);
+  const [bbgStatus, setBbgStatus] = useState<{
+    last_sync: string | null;
+    total_with_data: number;
+    stale_count: number;
+    no_data_count: number;
+  } | null>(null);
 
   // Load all agents
   const loadAgents = useCallback(async () => {
@@ -85,6 +91,10 @@ export default function SectorsPage() {
 
   useEffect(() => {
     loadAgents();
+    fetch('/api/bloomberg/status')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d && setBbgStatus(d))
+      .catch(() => {});
   }, [loadAgents]);
 
   useEffect(() => {
@@ -202,7 +212,24 @@ export default function SectorsPage() {
   } : null;
 
   return (
-    <div className="h-[calc(100vh-56px)] flex overflow-hidden bg-[#f4f4ef]">
+    <div className="h-[calc(100vh-56px)] flex flex-col overflow-hidden bg-[#f4f4ef]">
+      {/* Bloomberg status bar */}
+      {bbgStatus && (
+        <div className="flex-shrink-0 bg-white border-b border-gray-100 px-4 py-1 flex items-center gap-4 text-xs font-mono text-gray-400">
+          <span className={`inline-block w-1.5 h-1.5 rounded-full ${bbgStatus.no_data_count > 0 || bbgStatus.stale_count > 0 ? 'bg-amber-400' : 'bg-green-400'}`} />
+          <span>BBG</span>
+          <span>
+            {bbgStatus.last_sync
+              ? `Last sync ${new Date(bbgStatus.last_sync).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+              : 'No sync yet'}
+          </span>
+          <span>·</span>
+          <span>{bbgStatus.total_with_data} updated</span>
+          {bbgStatus.stale_count > 0 && <><span>·</span><span className="text-amber-500">{bbgStatus.stale_count} stale</span></>}
+          {bbgStatus.no_data_count > 0 && <><span>·</span><span className="text-red-400">{bbgStatus.no_data_count} missing</span></>}
+        </div>
+      )}
+      <div className="flex-1 flex overflow-hidden">
       {/* Sidebar */}
       <Sidebar
         agents={agents.map(a => ({
@@ -276,6 +303,7 @@ export default function SectorsPage() {
           onReject={handleRejectProposal}
         />
       )}
+      </div>
     </div>
   );
 }

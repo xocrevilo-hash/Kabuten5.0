@@ -1,23 +1,11 @@
 {
   "crons": [
-    { "path": "/api/sector-sweep?agent=APEX",     "schedule": "0 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=ORIENT",   "schedule": "2 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=VOLT",     "schedule": "4 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=INDRA",    "schedule": "6 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=HELIX",    "schedule": "8 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=PHOTON",   "schedule": "10 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=FORGE",    "schedule": "12 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=FORGE_JP", "schedule": "14 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=SURGE",    "schedule": "16 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=SYNTH",    "schedule": "18 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=DRAGON",   "schedule": "20 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=TERRA",    "schedule": "22 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=PIXEL",    "schedule": "24 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=LAYER",    "schedule": "26 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=TIDE",     "schedule": "28 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=NOVA",     "schedule": "30 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=FERRO",    "schedule": "32 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=RACK",     "schedule": "34 17 * * 1-5" },
-    { "path": "/api/sector-sweep?agent=OPTIM",    "schedule": "36 17 * * 1-5" }
-  ]
+    { "path": "/api/sweep-all", "schedule": "0 17 * * 1-5" }
+  ],
+  "functions": {
+    "app/api/sweep-all/route.ts":    { "maxDuration": 300 },
+    "app/api/sector-sweep/route.ts": { "maxDuration": 300 },
+    "app/api/chat/route.ts":         { "maxDuration": 60 },
+    "app/api/ask-kabuten/route.ts":  { "maxDuration": 60 }
+  }
 }

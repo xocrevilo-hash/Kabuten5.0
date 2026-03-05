@@ -139,6 +139,7 @@
   { "name": "Eoptolink (300308)", "ticker": "300308.SZ", "exchange": "SZSE", "country": "CN", "sector": "Optical Transceivers", "agent_key": "photon", "classification": "mid_cap", "bbg_ticker": "300308 CH Equity" },
   { "name": "Eoptolink (300502)", "ticker": "300502.SZ", "exchange": "SZSE", "country": "CN", "sector": "Optical Transceivers", "agent_key": "photon", "classification": "small_cap", "bbg_ticker": "300502 CH Equity" },
   { "name": "NAURA Technology (002371)", "ticker": "002371.SZ", "exchange": "SZSE", "country": "CN", "sector": "Semi Equipment", "agent_key": "forge", "classification": "mid_cap", "bbg_ticker": "002371 CH Equity" },
+  { "name": "NAURA Technology (688082)", "ticker": "688082.SS", "exchange": "SHSE", "country": "CN", "sector": "Semi Equipment", "agent_key": null, "classification": "mid_cap", "bbg_ticker": "688082 CH Equity" },
   { "name": "SMIC (A-shares)", "ticker": "688981.SS", "exchange": "SSE", "country": "CN", "sector": "Foundry", "agent_key": "dragon", "classification": "large_cap", "bbg_ticker": "688981 CH Equity" },
   { "name": "Cambricon", "ticker": "688256.SS", "exchange": "SSE", "country": "CN", "sector": "AI Chips", "agent_key": "dragon", "classification": "mid_cap", "bbg_ticker": "688256 CH Equity" },
   { "name": "Hygon", "ticker": "688041.SS", "exchange": "SSE", "country": "CN", "sector": "CPU / Server Chips", "agent_key": "dragon", "classification": "mid_cap", "bbg_ticker": "688041 CH Equity" },
@@ -217,8 +218,7 @@
   { "name": "Afterpay (Block AU)", "ticker": "SQ2", "exchange": "ASX", "country": "AU", "sector": "Fintech / BNPL", "agent_key": null, "classification": "mid_cap", "bbg_ticker": "SQ2 AU Equity" },
   { "name": "Weebit Nano", "ticker": "WBT", "exchange": "ASX", "country": "AU", "sector": "ReRAM / Memory", "agent_key": null, "classification": "small_cap", "bbg_ticker": "WBT AU Equity" },
   { "name": "BrainChip", "ticker": "BRN", "exchange": "ASX", "country": "AU", "sector": "Neuromorphic AI", "agent_key": null, "classification": "small_cap", "bbg_ticker": "BRN AU Equity" },
-  { "name": "Shenzhen Megmeet", "ticker": "002851.SZ", "exchange": "SZSE", "country": "CN", "sector": "DC Power / Cooling", "agent_key": "volt", "classification": "mid_cap", "bbg_ticker": "002851 CH Equity" },
-  { "name": "HD Hyundai Electric", "ticker": "267260.KS", "exchange": "KRX", "country": "KR", "sector": "Grid Transformers", "agent_key": "optim", "classification": "mid_cap", "bbg_ticker": "267260 KS Equity" },
-  { "name": "Sieyuan Electric", "ticker": "002028.SZ", "exchange": "SZSE", "country": "CN", "sector": "Grid Equipment", "agent_key": "optim", "classification": "mid_cap", "bbg_ticker": "002028 CH Equity" },
-  { "name": "Schneider Electric", "ticker": "SU", "exchange": "Euronext", "country": "FR", "sector": "Grid / Power Management", "agent_key": null, "classification": "mega_cap", "bbg_ticker": "SU FP Equity" }
+  { "name": "HD Hyundai Electric", "ticker": "267260.KS", "exchange": "KRX", "country": "KR", "sector": "Grid Power / Transformers", "agent_key": "optim", "classification": "mid_cap", "bbg_ticker": "267260 KS Equity" },
+  { "name": "Sieyuan Electric", "ticker": "002028.SZ", "exchange": "SZSE", "country": "CN", "sector": "Grid Power / Transformers", "agent_key": "optim", "classification": "mid_cap", "bbg_ticker": "002028 CH Equity" },
+  { "name": "Shenzhen Megmeet", "ticker": "002851.SZ", "exchange": "SZSE", "country": "CN", "sector": "DC Power / Inverters", "agent_key": "volt", "classification": "small_cap", "bbg_ticker": "002851 CH Equity" }
 ]
