@@ -1,0 +1,17 @@
+.logo {
+  font-family: 'Fredoka One', cursive;
+  font-weight: 400;
+  background: linear-gradient(90deg, #C5993A 0%, #F0C040 50%, #C5993A 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: logoShimmer 3s linear infinite;
+  display: inline-block;
+  line-height: 1.1;
+}
+
+@keyframes logoShimmer {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}

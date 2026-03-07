@@ -158,7 +158,7 @@ export default function CoveragePage() {
     <div style={{ padding: '2rem 1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
       {/* Header */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '2rem', paddingTop: '1rem' }}>
-        <KabutenLogo />
+        <KabutenLogo size="landing" />
         <p
           style={{
             fontFamily: "'IBM Plex Mono', monospace",

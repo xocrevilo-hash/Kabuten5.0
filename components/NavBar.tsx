@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
+import KabutenLogo from '@/components/KabutenLogo';
 
 interface AgentAttribution {
   key: string;
@@ -90,8 +91,8 @@ export default function NavBar() {
     <>
       <nav className="nav-bar">
         {/* Left: Wordmark */}
-        <Link href="/" className="nav-wordmark" style={{ textDecoration: 'none', marginRight: 'auto' }}>
-          KABUTEN
+        <Link href="/" style={{ textDecoration: 'none', marginRight: 'auto', lineHeight: 1 }}>
+          <KabutenLogo size="nav" />
         </Link>
 
         {/* Right: Nav links */}

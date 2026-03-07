@@ -15,6 +15,8 @@ const colourMap: Record<string, { bg: string; text: string; ring: string }> = {
   lime:   { bg: 'bg-lime-500',    text: 'text-black', ring: 'ring-lime-300' },
   sky:    { bg: 'bg-sky-500',     text: 'text-white', ring: 'ring-sky-300' },
   orange: { bg: 'bg-orange-500',  text: 'text-white', ring: 'ring-orange-300' },
+  stone:  { bg: 'bg-stone-500',   text: 'text-white', ring: 'ring-stone-300' },
+  slate:  { bg: 'bg-slate-500',   text: 'text-white', ring: 'ring-slate-300' },
   grey:   { bg: 'bg-gray-400',    text: 'text-white', ring: 'ring-gray-300' },
 };
 

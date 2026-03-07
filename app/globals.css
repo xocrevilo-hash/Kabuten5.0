@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=DM+Sans:wght@400;500;700&family=Nunito:wght@900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=DM+Sans:wght@400;500;700&family=Nunito:wght@900&family=Fredoka+One&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -96,6 +96,18 @@ body {
     12px 12px 0 rgba(0, 0, 0, 0.15);
   display: inline-block;
   user-select: none;
+}
+
+/* ─── Sectors page: 20% larger body text ───────────────────── */
+
+.sectors-page {
+  font-size: 1.2rem;
+}
+
+/* Keep timestamps and metadata labels at base size */
+.sectors-page .text-xs,
+.sectors-page .text-sm {
+  font-size: 0.75rem;
 }
 
 /* ─── Monospace utility ─────────────────────────────────────── */

@@ -9,6 +9,18 @@ const FORGE_JP_BATCHES = [
   ['6920.T', '6323.T', '7735.T', '8035.T', '7729.T'],
 ];
 
+// FORGE batches (10 companies → 2 batches of 5)
+const FORGE_BATCHES = [
+  ['AMAT', '3711.TW', 'ASML', 'KLAC', 'LRCX'],
+  ['002371.SZ', '688012.SS', '688200.SS', '688082.SS', '688072.SS'],
+];
+
+// LAYER batches (10 companies → 2 batches of 5)
+const LAYER_BATCHES = [
+  ['007660.KS', '2368.TW', '3037.TW', '1303.TW', '002916.SZ'],
+  ['002463.SZ', '300476.SZ', '3189.TW', '600183.SS', '8046.TW'],
+];
+
 async function getBloombergBlock(tickers: string[]): Promise<string> {
   try {
     const rows = await sql`
@@ -243,10 +255,17 @@ export async function POST(req: NextRequest) {
       reasoning: string;
     } | undefined;
 
-    if (agentKey === 'forge_jp') {
-      // FORGE_JP: 10 Japan companies batched into 2 × 5
-      for (let i = 0; i < FORGE_JP_BATCHES.length; i++) {
-        const batchTickers = FORGE_JP_BATCHES[i];
+    const batchedAgents: Record<string, string[][]> = {
+      forge_jp: FORGE_JP_BATCHES,
+      forge: FORGE_BATCHES,
+      layer: LAYER_BATCHES,
+    };
+
+    if (agentKey in batchedAgents) {
+      // Batched sweep: 10 companies → 2 × 5
+      const batches = batchedAgents[agentKey];
+      for (let i = 0; i < batches.length; i++) {
+        const batchTickers = batches[i];
         const batchCompanies = batchTickers.map(t => {
           const idx = agent.tickers.indexOf(t);
           return idx >= 0 ? agent.companies[idx] : t;

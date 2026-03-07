@@ -16,7 +16,7 @@ export async function GET() {
       FROM sector_agents sa
       LEFT JOIN agent_briefs ab ON sa.agent_key = ab.agent_key
       LEFT JOIN brief_proposals bp ON sa.agent_key = bp.agent_key AND bp.status = 'pending'
-      ORDER BY sa.id ASC
+      ORDER BY sa.agent_name ASC
     `;
     return NextResponse.json(agents);
   } catch (error) {

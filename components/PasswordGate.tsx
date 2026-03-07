@@ -81,7 +81,7 @@ export default function PasswordGate({ children }: PasswordGateProps) {
         }}
       >
         {/* Animated shimmer wordmark */}
-        <KabutenLogo size="full" />
+        <KabutenLogo size="gate" />
 
         {/* Password form */}
         <form

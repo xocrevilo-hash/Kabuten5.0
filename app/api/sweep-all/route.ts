@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Sequential sweep chain — 19 agents, SHRINK excluded (no company coverage)
+// 23 equity agents with hasSweep=true, in alphabetical order
+// SHRINK, KEYNES, MINER, CRYPTO excluded (no company coverage)
 const SWEEP_CHAIN = [
   'APEX', 'DRAGON', 'FERRO', 'FORGE', 'FORGE_JP',
-  'HELIX', 'INDRA', 'LAYER', 'NOVA', 'OPTIM',
-  'ORIENT', 'PHOTON', 'PIXEL', 'RACK', 'SURGE',
-  'SYNTH', 'TERRA', 'TIDE', 'VOLT',
+  'HELIX', 'INDRA', 'LAYER', 'MARIO', 'NOVA',
+  'OPTIM', 'ORIENT', 'ORIENT_MID', 'PHOTON', 'PILBARA',
+  'PIXEL', 'RACK', 'ROCKET', 'SURGE', 'SYNTH',
+  'TERRA', 'TIDE', 'VOLT',
 ];
+
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://kabuten50.vercel.app';
 
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET || '';
@@ -18,7 +22,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { searchParams, origin } = new URL(req.url);
+  const { searchParams } = new URL(req.url);
   const agentParam = (searchParams.get('agent') || SWEEP_CHAIN[0]).toUpperCase();
 
   const currentIdx = SWEEP_CHAIN.indexOf(agentParam);
@@ -31,8 +35,8 @@ export async function GET(req: NextRequest) {
   // ── Run sweep for this agent ──────────────────────────────────────────────
   let sweepResult: Record<string, unknown> = {};
   try {
-    const sweepRes = await fetch(`${origin}/api/sector-sweep?agent=${agentParam}`, {
-      method: 'GET',
+    const sweepRes = await fetch(`${BASE_URL}/api/sector-sweep?agent=${agentParam}`, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${secret}`,
         'x-cron-secret': secret,
@@ -41,14 +45,13 @@ export async function GET(req: NextRequest) {
     sweepResult = await sweepRes.json();
     console.log(`[sweep-all] ${agentParam} done (${currentIdx + 1}/${SWEEP_CHAIN.length})`);
   } catch (err) {
-    // Log error but always continue the chain
     console.error(`[sweep-all] ${agentParam} sweep error:`, err);
     sweepResult = { error: String(err) };
   }
 
   // ── Fire next agent in chain (fire and forget — do not await) ─────────────
   if (nextAgent) {
-    fetch(`${origin}/api/sweep-all?agent=${nextAgent}`, {
+    fetch(`${BASE_URL}/api/sweep-all?agent=${nextAgent}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${secret}`,

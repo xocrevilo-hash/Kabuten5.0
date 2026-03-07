@@ -212,6 +212,7 @@ export default function SectorsPage() {
   } : null;
 
   return (
+    <div className="sectors-page">
     <div className="h-[calc(100vh-56px)] flex flex-col overflow-hidden bg-[#f4f4ef]">
       {/* Bloomberg status bar */}
       {bbgStatus && (
@@ -250,15 +251,17 @@ export default function SectorsPage() {
             </h1>
             <p className="text-xs text-gray-400">{agentDetail?.sector_name || '...'}</p>
           </div>
-          <button
-            onClick={handleManualSweep}
-            disabled={sweeping}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-mono transition-colors disabled:opacity-50"
-            title="Run sweep now"
-          >
-            <span className={sweeping ? 'animate-spin' : ''}>↻</span>
-            {sweeping ? 'Sweeping...' : 'Sweep'}
-          </button>
+          {agentDetail && agentDetail.companies.length > 0 && (
+            <button
+              onClick={handleManualSweep}
+              disabled={sweeping}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-mono transition-colors disabled:opacity-50"
+              title="Run sweep now"
+            >
+              <span className={sweeping ? 'animate-spin' : ''}>↻</span>
+              {sweeping ? 'Sweeping...' : 'Sweep'}
+            </button>
+          )}
         </div>
 
         {/* Feed */}
@@ -304,6 +307,7 @@ export default function SectorsPage() {
         />
       )}
       </div>
+    </div>
     </div>
   );
 }
