@@ -3,9 +3,10 @@
     { "path": "/api/sweep-all", "schedule": "0 17 * * 1-5" }
   ],
   "functions": {
-    "app/api/sweep-all/route.ts":    { "maxDuration": 300 },
-    "app/api/sector-sweep/route.ts": { "maxDuration": 300 },
-    "app/api/chat/route.ts":         { "maxDuration": 60 },
-    "app/api/ask-kabuten/route.ts":  { "maxDuration": 60 }
+    "app/api/sweep-all/route.ts":         { "maxDuration": 300 },
+    "app/api/sector-sweep/route.ts":      { "maxDuration": 300 },
+    "app/api/podcasts/scan/route.ts":     { "maxDuration": 300 },
+    "app/api/chat/route.ts":              { "maxDuration": 60 },
+    "app/api/ask-kabuten/route.ts":       { "maxDuration": 60 }
   }
 }

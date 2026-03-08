@@ -131,13 +131,19 @@ export async function GET() {
       CREATE TABLE podcast_summaries (
         id SERIAL PRIMARY KEY,
         podcast_name TEXT NOT NULL,
-        episode_title TEXT,
-        summary TEXT,
-        companies_mentioned JSONB,
-        published_at TIMESTAMPTZ,
-        created_at TIMESTAMPTZ DEFAULT NOW()
+        episode_title TEXT NOT NULL,
+        episode_date DATE,
+        bullets TEXT[] NOT NULL DEFAULT '{}',
+        tickers TEXT[],
+        source_url TEXT,
+        has_relevant_content BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        scanned_at TIMESTAMPTZ DEFAULT NOW(),
+        CONSTRAINT uq_podcast_episode UNIQUE (podcast_name, episode_title)
       )
     `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_podcast_summaries_date ON podcast_summaries(episode_date DESC)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_podcast_summaries_name ON podcast_summaries(podcast_name)`;
 
     await sql`
       CREATE TABLE bloomberg_data (
