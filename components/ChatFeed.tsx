@@ -31,7 +31,7 @@ export default function ChatFeed({ messages, agentName, isLoading }: ChatFeedPro
       <div className="flex-1 flex items-center justify-center text-gray-400">
         <div className="text-center">
           <p className="font-mono text-lg mb-2">{agentName}</p>
-          <p className="text-sm">No messages yet. Start by asking a question.</p>
+          <p className="text-base">No messages yet. Start by asking a question.</p>
         </div>
       </div>
     );
@@ -67,7 +67,7 @@ export default function ChatFeed({ messages, agentName, isLoading }: ChatFeedPro
               {!isUser && (
                 <p className="text-[10px] font-mono text-gray-400 mb-1">{agentName}</p>
               )}
-              <div className={`px-3 py-2 rounded-xl text-sm leading-relaxed whitespace-pre-wrap ${
+              <div className={`px-3 py-2 rounded-xl text-base leading-relaxed whitespace-pre-wrap ${
                 isUser 
                   ? 'bg-gray-900 text-white rounded-br-sm' 
                   : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'

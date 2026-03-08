@@ -79,14 +79,19 @@ You are chatting with OC (portfolio manager). Answer questions concisely using y
       model: 'claude-opus-4-5',
       max_tokens: 2000,
       system: systemPrompt,
+      tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 10 }] as any,
       messages,
     });
 
-    const replyContent = response.content[0];
-    if (replyContent.type !== 'text') {
+    // Extract text from potentially multi-block response (web_search adds tool_result blocks)
+    const reply = response.content
+      .filter(block => block.type === 'text')
+      .map(block => (block as { type: 'text'; text: string }).text)
+      .join('');
+
+    if (!reply) {
       return NextResponse.json({ error: 'Unexpected response type' }, { status: 500 });
     }
-    const reply = replyContent.text;
 
     // Append to thread history
     const newHistory = [

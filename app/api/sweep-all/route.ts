@@ -1,71 +1,66 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
-// 23 equity agents with hasSweep=true, in alphabetical order
-// SHRINK, KEYNES, MINER, CRYPTO excluded (no company coverage)
-const SWEEP_CHAIN = [
-  'APEX', 'DRAGON', 'FERRO', 'FORGE', 'FORGE_JP',
-  'HELIX', 'INDRA', 'LAYER', 'MARIO', 'NOVA',
-  'OPTIM', 'ORIENT', 'ORIENT_MID', 'PHOTON', 'PILBARA',
-  'PIXEL', 'RACK', 'ROCKET', 'SURGE', 'SYNTH',
-  'TERRA', 'TIDE', 'VOLT',
+const AGENT_CHAIN = [
+  'APEX', 'DRAGON', 'FERRO', 'FORGE', 'FORGE_JP', 'HELIX', 'INDRA', 'LAYER',
+  'MARIO', 'NOVA', 'OPTIM', 'ORIENT', 'ORIENT_MID', 'PHOTON', 'PILBARA',
+  'PIXEL', 'RACK', 'ROCKET', 'SURGE', 'SYNTH', 'TERRA', 'TIDE', 'VOLT'
 ];
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://kabuten50.vercel.app';
-
-export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET || '';
-
-  // Auth — accept Vercel cron header or x-cron-secret for manual triggers
-  const authHeader = req.headers.get('authorization');
-  const cronSecret = req.headers.get('x-cron-secret');
-  if (authHeader !== `Bearer ${secret}` && cronSecret !== secret) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+async function handleSweep(request: NextRequest) {
+  // Vercel cron sends Authorization: Bearer <token> — NOT x-cron-secret
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { searchParams } = new URL(req.url);
-  const agentParam = (searchParams.get('agent') || SWEEP_CHAIN[0]).toUpperCase();
+  const { searchParams } = new URL(request.url);
+  const currentAgent = searchParams.get('agent') || AGENT_CHAIN[0];
+  const currentIndex = AGENT_CHAIN.indexOf(currentAgent);
 
-  const currentIdx = SWEEP_CHAIN.indexOf(agentParam);
-  if (currentIdx === -1) {
-    return NextResponse.json({ error: `Unknown agent: ${agentParam}` }, { status: 400 });
-  }
+  console.log(`[sweep-all] Running sweep for: ${currentAgent}`);
 
-  const nextAgent = currentIdx + 1 < SWEEP_CHAIN.length ? SWEEP_CHAIN[currentIdx + 1] : null;
-
-  // ── Run sweep for this agent ──────────────────────────────────────────────
-  let sweepResult: Record<string, unknown> = {};
+  // Run this agent's sweep
   try {
-    const sweepRes = await fetch(`${BASE_URL}/api/sector-sweep?agent=${agentParam}`, {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://kabuten50.vercel.app';
+    const sweepRes = await fetch(`${baseUrl}/api/sector-sweep?agent=${currentAgent}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${secret}`,
-        'x-cron-secret': secret,
+        'authorization': `Bearer ${process.env.CRON_SECRET}`,
+        'content-type': 'application/json',
       },
     });
-    sweepResult = await sweepRes.json();
-    console.log(`[sweep-all] ${agentParam} done (${currentIdx + 1}/${SWEEP_CHAIN.length})`);
+    console.log(`[sweep-all] ${currentAgent} sweep: ${sweepRes.status}`);
   } catch (err) {
-    console.error(`[sweep-all] ${agentParam} sweep error:`, err);
-    sweepResult = { error: String(err) };
+    console.error(`[sweep-all] ${currentAgent} failed:`, err);
+    // Always continue to next agent even on error
   }
 
-  // ── Fire next agent in chain (fire and forget — do not await) ─────────────
+  // Chain to next agent — fire and forget, use GET
+  const nextAgent = AGENT_CHAIN[currentIndex + 1];
   if (nextAgent) {
-    fetch(`${BASE_URL}/api/sweep-all?agent=${nextAgent}`, {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://kabuten50.vercel.app';
+    fetch(`${baseUrl}/api/sweep-all?agent=${nextAgent}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${secret}`,
-        'x-cron-secret': secret,
+        'authorization': `Bearer ${process.env.CRON_SECRET}`,
       },
-    }).catch(err => {
-      console.error(`[sweep-all] Failed to trigger next agent ${nextAgent}:`, err);
-    });
+    }).catch(err => console.error(`[sweep-all] Failed to chain to ${nextAgent}:`, err));
+  } else {
+    console.log('[sweep-all] Chain complete — all agents swept.');
   }
 
-  return NextResponse.json({
-    agent:    agentParam,
-    position: `${currentIdx + 1}/${SWEEP_CHAIN.length}`,
-    next:     nextAgent,
-    result:   sweepResult,
+  return Response.json({
+    ok: true,
+    swept: currentAgent,
+    next: nextAgent ?? null,
   });
+}
+
+// Export both GET and POST so chain works regardless of method
+export async function GET(request: NextRequest) {
+  return handleSweep(request);
+}
+
+export async function POST(request: NextRequest) {
+  return handleSweep(request);
 }

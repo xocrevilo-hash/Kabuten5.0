@@ -47,7 +47,7 @@ export default function Composer({ onSend, disabled, placeholder }: ComposerProp
           disabled={disabled}
           placeholder={placeholder || 'Ask the analyst anything...'}
           rows={1}
-          className="flex-1 bg-transparent resize-none outline-none text-sm text-gray-800 placeholder-gray-400 font-sans"
+          className="flex-1 bg-transparent resize-none outline-none text-base text-gray-800 placeholder-gray-400 font-sans"
           style={{ minHeight: '24px', maxHeight: '120px' }}
         />
         {/* Mic icon (placeholder) */}

@@ -160,12 +160,29 @@ For each company in your coverage, apply the following structured analysis:
 5. IDEA GENERATION:
    - Flag any company showing inflecting fundamentals, consensus too low/high, or valuation dislocation
 
+SOURCES — priority order for your web searches:
+1. X.com (Twitter/X) — highest priority. Search X for each ticker and company name. X surfaces real-time analyst takes, earnings reactions, management commentary, short-seller threads, sector themes, and market intelligence hours or days before it appears in formal news. Search patterns: "$NVDA", "NVDA earnings", "Tokyo Electron analyst", "ASML demand". Look for accounts from: sell-side analysts, fund managers, industry insiders, IR teams, tech journalists. Flag high-signal posts in your findings.
+2. Financial news — Reuters, Bloomberg, FT, Nikkei, WSJ, Barron's, The Information
+3. Company IR / filings — earnings releases, 8-Ks, TSE disclosures, HKEX filings, ASX announcements
+4. Broker research summaries — publicly visible analyst note abstracts or price target changes
+5. Industry/trade press — sector-specific publications (e.g. DigiTimes for semis, EV volumes data for SURGE names)
+
 INSTRUCTIONS:
-1. Search for recent news, earnings, price action, and analyst commentary for each company in your coverage.
-2. Apply the analytical framework above.
-3. For each company, classify as: Material, Incremental, or No Change.
-4. Compare findings against the PRIOR VIEW above.
-5. If findings warrant changes to thesis, drivers, risks, or ratings, propose updates with reasoning.
+1. Search the above sources — prioritise X.com first for each company, then broaden to news and filings.
+2. Apply the analytical framework above — not every section will be relevant for every company on every day.
+3. For each company, classify the finding as: Material 🔴, Incremental 🟡, or No Change ⚪ (see thresholds below).
+4. Compare your findings against the PRIOR VIEW above.
+5. If findings warrant changes to the thesis, drivers, risks, or ratings, propose updates with reasoning. If nothing warrants a change, set "brief_changed" to false.
+
+CLASSIFICATION THRESHOLDS — apply a HIGH hurdle. Default to No Change unless evidence is clear:
+
+No Change ⚪ — New information is consistent with the existing thesis and prior view. Routine news, minor price moves, in-line data, noise. The vast majority of daily findings will be No Change. Default to this unless the evidence clearly meets a higher bar.
+
+Incremental 🟡 — New information that meaningfully updates one element of the thesis but does not alter overall conviction or rating. Examples: a guidance nudge at a conference, an analyst note raising estimates modestly, a minor product announcement, a mildly better/worse print with no thesis implications. To qualify: (a) clearly verified from a credible source, (b) moves the needle on a specific driver or risk already in the thesis, (c) represents a genuine update — not a restatement of what was already known. Do not use Incremental for speculative posts, unverified rumours, or information that merely confirms the current view.
+
+Material 🔴 — New information that meaningfully challenges or confirms the core thesis, warrants a rating reconsideration, or represents a step-change in fundamentals. Examples: a major earnings beat/miss with guidance change, loss of a key customer, transformative M&A, a significant regulatory decision, a structural demand inflection evidenced by hard data. To qualify: (a) primary or highly credible source, (b) directly affects the investment thesis in a way a rational investor would act on, (c) represents a durable signal — not a single-day reaction or social media speculation. This is a high bar.
+
+Bias toward stability. The prior view was set with conviction. New daily information rarely warrants changing it. If you find yourself classifying more than 1–2 companies per sweep as Incremental or Material, recalibrate — you are likely setting the threshold too low.
 
 OUTPUT (JSON only, no other text):
 {
@@ -193,7 +210,7 @@ OUTPUT (JSON only, no other text):
   const response = await anthropic.messages.create({
     model: 'claude-opus-4-5',
     max_tokens: 4000,
-    tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 5 }] as any,
+    tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 10 }] as any,
     system: `You are ${agent.agent_name}, an elite AI sector analyst. Always respond with valid JSON only in the format specified. No markdown, no code blocks, just raw JSON.`,
     messages: [{ role: 'user', content: sweepPrompt }],
   });
@@ -216,9 +233,9 @@ OUTPUT (JSON only, no other text):
 }
 
 export async function POST(req: NextRequest) {
-  // Auth check
-  const cronSecret = req.headers.get('x-cron-secret');
-  if (cronSecret !== process.env.CRON_SECRET) {
+  // Auth check — Vercel cron sends Authorization: Bearer <token>
+  const authHeader = req.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
