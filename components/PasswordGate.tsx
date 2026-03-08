@@ -25,8 +25,18 @@ export default function PasswordGate({ children }: PasswordGateProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Check sessionStorage first (fastest), then fall back to cookie
     const stored = sessionStorage.getItem('kabuten_auth');
-    if (stored === 'true') setAuthenticated(true);
+    if (stored === 'true') {
+      setAuthenticated(true);
+    } else {
+      // Also check the HTTP cookie (set by /api/auth) so existing sessions survive page reloads
+      const hasCookie = document.cookie.split(';').some(c => c.trim() === 'kabuten-auth=true');
+      if (hasCookie) {
+        sessionStorage.setItem('kabuten_auth', 'true');
+        setAuthenticated(true);
+      }
+    }
     setHydrated(true);
   }, []);
 
@@ -36,17 +46,28 @@ export default function PasswordGate({ children }: PasswordGateProps) {
     }
   }, [authenticated, hydrated]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'fingerthumb') {
-      sessionStorage.setItem('kabuten_auth', 'true');
-      setAuthenticated(true);
-    } else {
-      setError('Incorrect password');
-      setShaking(true);
-      setPassword('');
-      setTimeout(() => setShaking(false), 500);
-      setTimeout(() => setError(''), 2000);
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        // Keep sessionStorage in sync for fast hydration on next load
+        sessionStorage.setItem('kabuten_auth', 'true');
+        setAuthenticated(true);
+      } else {
+        setError('Incorrect password');
+        setShaking(true);
+        setPassword('');
+        setTimeout(() => setShaking(false), 500);
+        setTimeout(() => setError(''), 2000);
+      }
+    } catch {
+      setError('Connection error');
     }
   };
 

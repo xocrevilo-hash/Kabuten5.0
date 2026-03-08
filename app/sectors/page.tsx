@@ -162,7 +162,7 @@ export default function SectorsPage() {
     try {
       const res = await fetch(`/api/sector-sweep?agent=${activeKey.toUpperCase()}`, {
         method: 'POST',
-        headers: { 'x-cron-secret': '2d59c82e3b6784db3860d64d14474c22cfcdac916c64d4029fee41e88cc807cd' },
+        credentials: 'include',
       });
       if (res.ok) {
         // Reload agent detail to get updated messages

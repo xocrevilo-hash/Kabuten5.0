@@ -232,10 +232,26 @@ OUTPUT (JSON only, no other text):
   return JSON.parse(jsonText);
 }
 
+function isAuthorized(request: NextRequest): boolean {
+  // Path 1: Vercel cron or sweep-all daisy-chain (server-to-server)
+  const authHeader = request.headers.get('authorization') ?? '';
+  if (authHeader === `Bearer ${process.env.CRON_SECRET}`) return true;
+
+  // Path 2: Browser session — manual Sweep button click
+  // Cookie name is: kabuten-auth=true  (hyphen, not underscore)
+  const cookieHeader = request.headers.get('cookie') ?? '';
+  const cookies: Record<string, string> = {};
+  cookieHeader.split(';').forEach(part => {
+    const [key, ...val] = part.trim().split('=');
+    if (key) cookies[key.trim()] = val.join('=').trim();
+  });
+  if (cookies['kabuten-auth'] === 'true') return true;
+
+  return false;
+}
+
 export async function POST(req: NextRequest) {
-  // Auth check — Vercel cron sends Authorization: Bearer <token>
-  const authHeader = req.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorized(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -404,16 +420,8 @@ export async function POST(req: NextRequest) {
 
 // Also allow GET for Vercel cron (cron hits GET by default)
 export async function GET(req: NextRequest) {
-  // For Vercel cron, check the Authorization header
-  const authHeader = req.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    // Also check x-cron-secret for manual triggers
-    const cronSecret = req.headers.get('x-cron-secret');
-    if (cronSecret !== process.env.CRON_SECRET) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
-  // Reuse POST logic by constructing a fake POST
   return POST(req);
 }

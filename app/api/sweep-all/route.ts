@@ -6,10 +6,23 @@ const AGENT_CHAIN = [
   'PIXEL', 'RACK', 'ROCKET', 'SURGE', 'SYNTH', 'TERRA', 'TIDE', 'VOLT'
 ];
 
+function isAuthorized(request: NextRequest): boolean {
+  const authHeader = request.headers.get('authorization') ?? '';
+  if (authHeader === `Bearer ${process.env.CRON_SECRET}`) return true;
+
+  const cookieHeader = request.headers.get('cookie') ?? '';
+  const cookies: Record<string, string> = {};
+  cookieHeader.split(';').forEach(part => {
+    const [key, ...val] = part.trim().split('=');
+    if (key) cookies[key.trim()] = val.join('=').trim();
+  });
+  if (cookies['kabuten-auth'] === 'true') return true;
+
+  return false;
+}
+
 async function handleSweep(request: NextRequest) {
-  // Vercel cron sends Authorization: Bearer <token> — NOT x-cron-secret
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorized(request)) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
