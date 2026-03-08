@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 
-const CRON_SECRET = '2d59c82e3b6784db3860d64d14474c22cfcdac916c64d4029fee41e88cc807cd';
-
 const TRACKED_PODCASTS = [
   'A16Z Show',
   'All-In',
@@ -93,7 +91,6 @@ export default function PodcastsPage() {
       const res = await fetch('/api/podcasts/scan', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'x-cron-secret': CRON_SECRET },
       });
 
       if (pollRef.current) {

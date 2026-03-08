@@ -17,18 +17,19 @@ const PODCASTS = [
 ];
 
 function isAuthorized(request: Request): boolean {
-  const authHeader = request.headers.get('authorization');
+  // Path 1: Vercel cron or server-to-server
+  const authHeader = request.headers.get('authorization') ?? '';
   if (authHeader === `Bearer ${process.env.CRON_SECRET}`) return true;
-  const cronSecret = request.headers.get('x-cron-secret');
-  if (cronSecret === process.env.CRON_SECRET) return true;
+
+  // Path 2: Browser session cookie
   const cookieHeader = request.headers.get('cookie') ?? '';
-  const cookies = Object.fromEntries(
-    cookieHeader.split(';').map(c => {
-      const [k, ...v] = c.trim().split('=');
-      return [k, v.join('=')];
-    })
-  );
-  if (cookies['kabuten_auth'] === 'true' || cookies['authenticated'] === 'true') return true;
+  const cookies: Record<string, string> = {};
+  cookieHeader.split(';').forEach(part => {
+    const [key, ...val] = part.trim().split('=');
+    if (key) cookies[key.trim()] = val.join('=').trim();
+  });
+  if (cookies['kabuten-auth'] === 'true') return true;
+
   return false;
 }
 
