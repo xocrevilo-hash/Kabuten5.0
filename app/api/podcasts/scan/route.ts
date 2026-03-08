@@ -71,16 +71,38 @@ If the latest episode has no relevant semiconductor/AI/bottleneck content, set h
     messages: [{ role: 'user', content: prompt }],
   });
 
-  const textBlock = response.content.find(b => b.type === 'text');
-  if (!textBlock || textBlock.type !== 'text') {
-    throw new Error('No text response from Claude API');
+  // Same multi-block fix as sector-sweep: web_search responses emit preamble text
+  // blocks before the final JSON block — search last-to-first for the JSON block.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const textBlocks: string[] = (response.content as any[])
+    .filter((b: any) => b.type === 'text')
+    .map((b: any) => String(b.text ?? '').trim());
+
+  let jsonText = '';
+
+  for (let i = textBlocks.length - 1; i >= 0; i--) {
+    let candidate = textBlocks[i];
+    if (candidate.startsWith('```')) {
+      candidate = candidate.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+    }
+    if (candidate.startsWith('{')) {
+      jsonText = candidate;
+      break;
+    }
   }
 
-  const clean = textBlock.text.replace(/```json\n?|```/g, '').trim();
-  const jsonMatch = clean.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('Could not parse JSON from Claude response');
+  // Fallback: extract JSON object from anywhere in combined text
+  if (!jsonText) {
+    const allText = textBlocks.join('\n');
+    const match = allText.match(/\{[\s\S]*\}/);
+    if (match) jsonText = match[0];
+  }
 
-  return JSON.parse(jsonMatch[0]);
+  if (!jsonText) {
+    throw new Error(`No JSON found in Claude response. Blocks: ${textBlocks.map(t => t.substring(0, 100)).join(' | ')}`);
+  }
+
+  return JSON.parse(jsonText);
 }
 
 export async function POST(request: Request) {

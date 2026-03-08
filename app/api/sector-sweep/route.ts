@@ -215,18 +215,38 @@ OUTPUT (JSON only, no other text):
     messages: [{ role: 'user', content: sweepPrompt }],
   });
 
-  // Extract text content from potentially multi-block response
+  // Extract JSON from Claude's response — when using web_search tools,
+  // Claude emits multiple text blocks (preamble text, then final JSON).
+  // We must find the text block that contains the JSON, not concatenate all text.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const textBlocks: string[] = (response.content as any[])
+    .filter((b: any) => b.type === 'text')
+    .map((b: any) => String(b.text ?? '').trim());
+
   let jsonText = '';
-  for (const block of response.content) {
-    if (block.type === 'text') {
-      jsonText += block.text;
+
+  // Try text blocks from last to first — the JSON is always the final text block
+  for (let i = textBlocks.length - 1; i >= 0; i--) {
+    let candidate = textBlocks[i];
+    // Strip markdown code fences if present
+    if (candidate.startsWith('```')) {
+      candidate = candidate.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+    }
+    if (candidate.startsWith('{')) {
+      jsonText = candidate;
+      break;
     }
   }
 
-  // Clean up JSON (remove markdown code blocks if present)
-  jsonText = jsonText.trim();
-  if (jsonText.startsWith('```')) {
-    jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+  // Fallback: extract JSON object from anywhere in all text blocks combined
+  if (!jsonText) {
+    const allText = textBlocks.join('\n');
+    const match = allText.match(/\{[\s\S]*\}/);
+    if (match) jsonText = match[0];
+  }
+
+  if (!jsonText) {
+    throw new Error(`No JSON found in Claude response. Text blocks: ${textBlocks.map(t => t.substring(0, 100)).join(' | ')}`);
   }
 
   return JSON.parse(jsonText);
