@@ -241,5 +241,10 @@
   { "name": "Nan Ya Printed Circuit", "ticker": "8046.TW", "exchange": "TWSE", "country": "TW", "sector": "PCB", "agent_key": "layer", "classification": "mid_cap", "bbg_ticker": "8046 TT Equity" },
   { "name": "AMEC (Advanced Micro-Fabrication)", "ticker": "688012.SS", "exchange": "SSE", "country": "CN", "sector": "Semi Equipment", "agent_key": "forge", "classification": "mid_cap", "bbg_ticker": "688012 CH Equity" },
   { "name": "Beijing Huafeng Test", "ticker": "688200.SS", "exchange": "SSE", "country": "CN", "sector": "Semi Equipment", "agent_key": "forge", "classification": "mid_cap", "bbg_ticker": "688200 CH Equity" },
-  { "name": "Piotech", "ticker": "688072.SS", "exchange": "SSE", "country": "CN", "sector": "Semi Equipment", "agent_key": "forge", "classification": "mid_cap", "bbg_ticker": "688072 CH Equity" }
+  { "name": "Piotech", "ticker": "688072.SS", "exchange": "SSE", "country": "CN", "sector": "Semi Equipment", "agent_key": "forge", "classification": "mid_cap", "bbg_ticker": "688072 CH Equity" },
+  { "name": "SoftBank Group", "ticker": "9984.T", "exchange": "TSE", "country": "JP", "sector": "Japan Internet", "agent_key": "masa", "classification": "large_cap", "bbg_ticker": "9984 JP Equity" },
+  { "name": "Rakuten Group", "ticker": "4755.T", "exchange": "TSE", "country": "JP", "sector": "Japan Internet", "agent_key": "masa", "classification": "large_cap", "bbg_ticker": "4755 JP Equity" },
+  { "name": "LY Corp", "ticker": "4689.T", "exchange": "TSE", "country": "JP", "sector": "Japan Internet", "agent_key": "masa", "classification": "large_cap", "bbg_ticker": "4689 JP Equity" },
+  { "name": "Mercari", "ticker": "4385.T", "exchange": "TSE", "country": "JP", "sector": "Japan Internet", "agent_key": "masa", "classification": "mid_cap", "bbg_ticker": "4385 JP Equity" },
+  { "name": "Zozo", "ticker": "3092.T", "exchange": "TSE", "country": "JP", "sector": "Japan Internet", "agent_key": "masa", "classification": "mid_cap", "bbg_ticker": "3092 JP Equity" }
 ]

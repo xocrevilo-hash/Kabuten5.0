@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 
 const AGENT_CHAIN = [
   'APEX', 'DRAGON', 'FERRO', 'FORGE', 'FORGE_JP', 'HELIX', 'INDRA', 'LAYER',
-  'MARIO', 'NOVA', 'OPTIM', 'ORIENT', 'ORIENT_MID', 'PHOTON', 'PILBARA',
+  'MARIO', 'MASA', 'NOVA', 'OPTIM', 'ORIENT', 'ORIENT_MID', 'PHOTON', 'PILBARA',
   'PIXEL', 'RACK', 'ROCKET', 'SURGE', 'SYNTH', 'TERRA', 'TIDE', 'VOLT'
 ];
 

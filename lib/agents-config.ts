@@ -109,6 +109,15 @@ export const AGENTS: AgentConfig[] = [
     companies: ['Sony Group', 'Nintendo', 'Konami', 'Capcom', 'Bandai Namco', 'Sega Sammy'],
   },
   {
+    agent_key: 'masa',
+    agent_name: 'MASA',
+    sector_name: 'Japan Internet',
+    colour: 'cyan',
+    hasSweep: true,
+    tickers: ['9984.T', '4755.T', '4689.T', '4385.T', '3092.T'],
+    companies: ['SoftBank Group', 'Rakuten Group', 'LY Corp', 'Mercari', 'Zozo'],
+  },
+  {
     agent_key: 'miner',
     agent_name: 'MINER',
     sector_name: 'Mining',
