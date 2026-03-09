@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
   const companies = (seedData as SeedCompany[]).filter(c => c.agent_key === agent.agent_key);
   let companiesInserted = 0;
   for (const company of companies) {
-    const result = await sql`
+    await sql`
       INSERT INTO companies (name, ticker, bbg_ticker, exchange, country, sector, agent_key, classification)
       VALUES (
         ${company.name},
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
       )
       ON CONFLICT (ticker) DO NOTHING
     `;
-    if (result.count > 0) companiesInserted++;
+    companiesInserted++;
   }
 
   return NextResponse.json({
