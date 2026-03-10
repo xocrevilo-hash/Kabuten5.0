@@ -82,21 +82,24 @@ export async function GET(request: NextRequest) {
   const companies = (seedData as SeedCompany[]).filter(c => c.agent_key === agent.agent_key);
   let companiesInserted = 0;
   for (const company of companies) {
-    await sql`
-      INSERT INTO companies (name, ticker, bbg_ticker, exchange, country, sector, agent_key, classification)
-      VALUES (
-        ${company.name},
-        ${company.ticker},
-        ${company.bbg_ticker},
-        ${company.exchange},
-        ${company.country},
-        ${company.sector},
-        ${company.agent_key},
-        ${company.classification}
-      )
-      ON CONFLICT (ticker) DO NOTHING
-    `;
-    companiesInserted++;
+    try {
+      await sql`
+        INSERT INTO companies (name, ticker, bbg_ticker, exchange, country, sector, agent_key, classification)
+        VALUES (
+          ${company.name},
+          ${company.ticker},
+          ${company.bbg_ticker},
+          ${company.exchange},
+          ${company.country},
+          ${company.sector},
+          ${company.agent_key},
+          ${company.classification}
+        )
+      `;
+      companiesInserted++;
+    } catch {
+      // Already exists — skip silently
+    }
   }
 
   return NextResponse.json({

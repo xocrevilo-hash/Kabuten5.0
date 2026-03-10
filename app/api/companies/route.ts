@@ -7,6 +7,7 @@ export async function GET() {
       c.*,
       sa.agent_name,
       ab.ratings,
+      ab.ratings->>c.ticker AS rating,
       MAX(al.swept_at) AS last_sweep,
       bd.market_cap AS bloomberg_market_cap,
       bd.px_last AS bloomberg_price,

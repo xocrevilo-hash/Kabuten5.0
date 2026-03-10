@@ -28,14 +28,14 @@ const ratingColor: Record<string, string> = {
 export default function AgentPanel({ agent, onReviewProposal, onRefreshAgent }: AgentPanelProps) {
   if (!agent) {
     return (
-      <div className="w-[340px] bg-white border-l border-gray-200 flex items-center justify-center h-full">
+      <div className="w-[442px] bg-white border-l border-gray-200 flex items-center justify-center h-full">
         <p className="text-gray-400 text-sm font-mono">Select an agent</p>
       </div>
     );
   }
 
   return (
-    <div className="w-[340px] bg-white border-l border-gray-200 flex flex-col h-full overflow-y-auto">
+    <div className="w-[442px] bg-white border-l border-gray-200 flex flex-col h-full overflow-y-auto">
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <div>
@@ -64,8 +64,8 @@ export default function AgentPanel({ agent, onReviewProposal, onRefreshAgent }: 
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
         {/* Thesis */}
         <div>
-          <p className="text-xs font-mono text-gray-400 uppercase tracking-wider mb-1">Thesis</p>
-          <p className="text-sm text-gray-700 leading-relaxed">
+          <p className="text-sm font-mono text-gray-400 uppercase tracking-wider mb-1">Thesis</p>
+          <p className="text-base text-gray-700 leading-relaxed">
             {agent.thesis || <span className="text-gray-400 italic">No thesis published yet</span>}
           </p>
         </div>
@@ -73,10 +73,10 @@ export default function AgentPanel({ agent, onReviewProposal, onRefreshAgent }: 
         {/* Drivers */}
         {agent.drivers && agent.drivers.length > 0 && (
           <div>
-            <p className="text-xs font-mono text-gray-400 uppercase tracking-wider mb-1">Key Drivers</p>
+            <p className="text-sm font-mono text-gray-400 uppercase tracking-wider mb-1">Key Drivers</p>
             <ul className="space-y-1">
               {agent.drivers.map((d, i) => (
-                <li key={i} className="text-sm text-gray-700 flex gap-1.5">
+                <li key={i} className="text-base text-gray-700 flex gap-1.5">
                   <span className="text-emerald-500 font-bold flex-shrink-0">+</span>
                   <span>{d}</span>
                 </li>
@@ -88,10 +88,10 @@ export default function AgentPanel({ agent, onReviewProposal, onRefreshAgent }: 
         {/* Risks */}
         {agent.risks && agent.risks.length > 0 && (
           <div>
-            <p className="text-xs font-mono text-gray-400 uppercase tracking-wider mb-1">Key Risks</p>
+            <p className="text-sm font-mono text-gray-400 uppercase tracking-wider mb-1">Key Risks</p>
             <ul className="space-y-1">
               {agent.risks.map((r, i) => (
-                <li key={i} className="text-sm text-gray-700 flex gap-1.5">
+                <li key={i} className="text-base text-gray-700 flex gap-1.5">
                   <span className="text-red-500 font-bold flex-shrink-0">−</span>
                   <span>{r}</span>
                 </li>
@@ -103,11 +103,11 @@ export default function AgentPanel({ agent, onReviewProposal, onRefreshAgent }: 
         {/* Ratings */}
         {agent.ratings && Object.keys(agent.ratings).length > 0 && (
           <div>
-            <p className="text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">Ratings</p>
+            <p className="text-sm font-mono text-gray-400 uppercase tracking-wider mb-2">Ratings</p>
             <div className="space-y-1">
               {Object.entries(agent.ratings).map(([ticker, rating]) => (
                 <div key={ticker} className="flex items-center justify-between">
-                  <span className="text-sm font-mono text-gray-700">{ticker}</span>
+                  <span className="text-base font-mono text-gray-700">{ticker}</span>
                   <span className={`text-xs font-mono px-2 py-0.5 rounded font-bold ${ratingColor[rating] || 'text-gray-500 bg-gray-50'}`}>
                     {rating}
                   </span>
@@ -120,7 +120,7 @@ export default function AgentPanel({ agent, onReviewProposal, onRefreshAgent }: 
         {/* Coverage list */}
         {agent.companies && agent.companies.length > 0 && (
           <div>
-            <p className="text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">Coverage ({agent.companies.length})</p>
+            <p className="text-sm font-mono text-gray-400 uppercase tracking-wider mb-2">Coverage ({agent.companies.length})</p>
             <div className="space-y-1">
               {agent.companies.map((c) => {
                 const rating = agent.ratings?.[c.ticker];

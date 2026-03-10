@@ -3,25 +3,28 @@
 import { useState, useEffect, useCallback } from 'react';
 
 const KEYWORDS = [
-  'HBM memory', 'CoWoS packaging', 'AI inference chips', 'TSMC earnings',
-  'Nvidia AI', 'AMD datacenter', 'Intel foundry', 'tariffs semiconductors',
-  'CHIPS Act funding', 'Japan chip subsidies', 'Korea memory cycle',
-  'ASML lithography', 'SK Hynix HBM', 'Samsung memory', 'Micron earnings',
-  'Marvell AI', 'Broadcom AI revenue', 'Taiwan semiconductor', 'SoftBank AI',
-  'Alibaba cloud', 'Tencent gaming', 'Sea Limited Shopee', 'Grab super app',
-  'BYD EV sales', 'Tesla China', 'Panasonic battery', 'Keyence automation',
-  'Fanuc robot orders', 'Mitsubishi Electric', 'GLP-1 obesity drug',
-  'Daiichi Sankyo ADC', 'Adyen payments', 'Block fintech', 'PayPal earnings',
-  'AWS re:Invent', 'Azure AI OpenAI', 'Google Cloud AI', 'LNG Japan import',
-  'copper demand AI', 'Japan equities rally', 'APAC risk-off',
+  'NVDA', 'TSMC', 'ASML', 'AMD', 'Broadcom',
+  'HBM memory', 'CoWoS packaging', 'AI inference', 'Blackwell GPU',
+  'hyperscaler capex', 'data center buildout',
+  'semiconductor export controls', 'CHIPS Act',
+  'Tokyo Electron', 'Advantest', 'Lasertec',
+  'Samsung HBM', 'SK Hynix HBM', 'Micron earnings',
+  'CATL battery', 'BYD EV', 'Tesla demand',
+  'SoftBank Vision Fund', 'Alibaba earnings', 'Tencent earnings',
+  'iron ore price', 'copper price', 'lithium price',
+  'BOJ rate hike', 'JPY dollar', 'China stimulus',
+  'tariffs semiconductors', 'US China tech war',
+  'PCB supply chain', 'power grid AI', 'transformer shortage',
+  'networking optics', 'Marvell earnings', 'Arista Networks',
+  'Korea defence export',
 ];
 
 interface ScanResult {
   keyword: string;
-  view_count: number;
+  view_count?: number;
   heat_score: number;
   scanned_at: string;
-  avg_views: number;
+  avg_views?: number;
 }
 
 function heatColor(score: number): { bg: string; text: string; border: string } {
@@ -44,24 +47,7 @@ export default function HeatmapPage() {
   const [scans, setScans] = useState<Record<string, ScanResult>>({});
   const [lastScan, setLastScan] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [scanProgress, setScanProgress] = useState(0);
-  const [scanTotal, setScanTotal] = useState(0);
-  const [currentKeyword, setCurrentKeyword] = useState('');
   const [error, setError] = useState('');
-  const [chromeMcpConnected, setChromeMcpConnected] = useState(false);
-
-  // Check if Chrome MCP is available (heuristic: extension injected a global)
-  useEffect(() => {
-    const checkMcp = () => {
-      // Chrome MCP injects window.__CLAUDE_MCP__ when connected
-      const connected = typeof (window as unknown as { __CLAUDE_MCP__?: boolean }).__CLAUDE_MCP__ !== 'undefined';
-      setChromeMcpConnected(connected);
-    };
-    checkMcp();
-    // Re-check every 2s in case the extension connects later
-    const interval = setInterval(checkMcp, 2000);
-    return () => clearInterval(interval);
-  }, []);
 
   const loadData = useCallback(async () => {
     try {
@@ -82,57 +68,27 @@ export default function HeatmapPage() {
     loadData();
   }, [loadData]);
 
-  // The scan works by navigating X.com search for each keyword in the active Chrome tab
-  // via the Chrome MCP integration. Since Chrome MCP is controlled by Claude Code (not
-  // accessible as a JS API from the page), the scan button opens a guided flow:
-  // it posts simulated results for demo / triggers the backend scan logic.
-  //
-  // In practice: Claude Code itself runs the scan using its browser tools when the user
-  // clicks "Run Scan" and Claude Code is active. The frontend collects the results from
-  // the API after the scan is complete.
   const runScan = async () => {
     if (scanning) return;
     setScanning(true);
     setError('');
-    setScanProgress(0);
-    setScanTotal(KEYWORDS.length);
 
     try {
-      // Simulate scanning through keywords with realistic timing
-      // In production, Claude Code's Chrome MCP tools do the actual X.com navigation
-      const results: { keyword: string; view_count: number }[] = [];
-
-      for (let i = 0; i < KEYWORDS.length; i++) {
-        const keyword = KEYWORDS[i];
-        setCurrentKeyword(keyword);
-        setScanProgress(i + 1);
-
-        // Fetch simulated/estimated view counts
-        // Replace this with actual Chrome MCP scan results when available
-        const views = Math.floor(Math.random() * 2_000_000) + 5_000;
-        results.push({ keyword, view_count: views });
-
-        // Simulate network delay per keyword
-        await new Promise((r) => setTimeout(r, 150));
-      }
-
-      // Post results to API
-      const postRes = await fetch('/api/heatmap/scan', {
+      const res = await fetch('/api/heatmap/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ results }),
       });
 
-      if (!postRes.ok) throw new Error('Failed to save scan results');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Scan failed');
+      }
 
-      setCurrentKeyword('');
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Scan failed');
     } finally {
       setScanning(false);
-      setScanProgress(0);
-      setCurrentKeyword('');
     }
   };
 
@@ -164,59 +120,27 @@ export default function HeatmapPage() {
           )}
         </div>
 
-        <div className="flex flex-col items-end gap-2">
-          {/* Chrome MCP status */}
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <span
-              className={`inline-block w-2 h-2 rounded-full ${
-                chromeMcpConnected ? 'bg-green-500' : 'bg-gray-300'
-              }`}
-            />
-            <span className={chromeMcpConnected ? 'text-green-700' : 'text-gray-400'}>
-              Chrome MCP {chromeMcpConnected ? 'connected' : 'not connected'}
+        <button
+          onClick={runScan}
+          disabled={scanning}
+          className={`
+            px-4 py-2 rounded font-mono text-sm font-medium transition-all
+            ${scanning
+              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              : 'bg-black text-white hover:bg-gray-800 cursor-pointer'
+            }
+          `}
+        >
+          {scanning ? (
+            <span className="flex items-center gap-2">
+              <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Scanning...
             </span>
-          </div>
-
-          <button
-            onClick={runScan}
-            disabled={scanning}
-            title={!chromeMcpConnected ? 'Chrome MCP required for live X.com scan' : undefined}
-            className={`
-              px-4 py-2 rounded font-mono text-sm font-medium transition-all
-              ${scanning
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'bg-black text-white hover:bg-gray-800 cursor-pointer'
-              }
-            `}
-          >
-            {scanning ? (
-              <span className="flex items-center gap-2">
-                <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Scanning... ({scanProgress}/{scanTotal})
-              </span>
-            ) : (
-              '↻ Run Scan'
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      {scanning && (
-        <div className="mb-4">
-          <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-black transition-all duration-200 rounded-full"
-              style={{ width: `${(scanProgress / scanTotal) * 100}%` }}
-            />
-          </div>
-          {currentKeyword && (
-            <p className="text-xs font-mono text-gray-500 mt-1">
-              Scanning: <span className="text-gray-700">&quot;{currentKeyword}&quot;</span>
-            </p>
+          ) : (
+            '↻ Run Scan'
           )}
-        </div>
-      )}
+        </button>
+      </div>
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm font-mono">
@@ -242,7 +166,7 @@ export default function HeatmapPage() {
           </div>
         ))}
         <span className="text-xs font-mono text-gray-400 ml-2">
-          Score = views vs 7-day avg (0–100)
+          Score 0–100 (Claude web_search assessment)
         </span>
       </div>
 
@@ -282,15 +206,15 @@ export default function HeatmapPage() {
                   {keyword}
                 </p>
 
-                {/* View count */}
-                {hasScore && scan?.view_count !== undefined && (
+                {/* View count (present for legacy scans) */}
+                {hasScore && scan?.view_count !== undefined && scan.view_count > 0 && (
                   <p className={`text-xs font-mono mt-1.5 opacity-75 ${colors.text}`}>
                     {formatViews(scan.view_count)} views
                   </p>
                 )}
 
-                {/* Avg comparison */}
-                {hasScore && scan?.avg_views > 0 && (
+                {/* Avg comparison (present for legacy scans) */}
+                {hasScore && scan?.avg_views !== undefined && scan.avg_views > 0 && (
                   <p className={`text-xs font-mono opacity-60 ${colors.text}`}>
                     avg {formatViews(Math.round(scan.avg_views))}
                   </p>
@@ -316,8 +240,6 @@ export default function HeatmapPage() {
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="text-left font-mono text-xs text-gray-500 px-5 py-2">Rank</th>
                 <th className="text-left font-mono text-xs text-gray-500 px-5 py-2">Keyword</th>
-                <th className="text-right font-mono text-xs text-gray-500 px-5 py-2">Views</th>
-                <th className="text-right font-mono text-xs text-gray-500 px-5 py-2">7d Avg</th>
                 <th className="text-right font-mono text-xs text-gray-500 px-5 py-2">Heat</th>
               </tr>
             </thead>
@@ -332,12 +254,6 @@ export default function HeatmapPage() {
                     <tr key={keyword} className="border-b border-gray-50 hover:bg-gray-50/50">
                       <td className="px-5 py-2.5 font-mono text-xs text-gray-400">#{idx + 1}</td>
                       <td className="px-5 py-2.5 font-mono text-xs text-gray-800">{keyword}</td>
-                      <td className="px-5 py-2.5 font-mono text-xs text-right text-gray-700">
-                        {formatViews(scan.view_count)}
-                      </td>
-                      <td className="px-5 py-2.5 font-mono text-xs text-right text-gray-500">
-                        {scan.avg_views > 0 ? formatViews(Math.round(scan.avg_views)) : '—'}
-                      </td>
                       <td className="px-5 py-2.5 text-right">
                         <span className={`inline-block px-2 py-0.5 rounded text-xs font-mono font-bold ${colors.bg} ${colors.text}`}>
                           {scan.heat_score.toFixed(0)}
