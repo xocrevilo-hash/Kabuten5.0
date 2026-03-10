@@ -65,18 +65,24 @@ export async function GET(request: NextRequest) {
   `;
 
   // 2. Upsert agent_briefs row (empty)
-  await sql`
-    INSERT INTO agent_briefs (agent_key, thesis, drivers, risks, ratings)
-    VALUES (${agent.agent_key}, NULL, '[]'::jsonb, '[]'::jsonb, '{}'::jsonb)
-    ON CONFLICT (agent_key) DO NOTHING
-  `;
+  try {
+    await sql`
+      INSERT INTO agent_briefs (agent_key, thesis, drivers, risks, ratings)
+      VALUES (${agent.agent_key}, NULL, '[]'::jsonb, '[]'::jsonb, '{}'::jsonb)
+    `;
+  } catch {
+    // Already exists — skip silently
+  }
 
   // 3. Upsert agent_threads row (empty)
-  await sql`
-    INSERT INTO agent_threads (agent_key, thread_history)
-    VALUES (${agent.agent_key}, '[]'::jsonb)
-    ON CONFLICT (agent_key) DO NOTHING
-  `;
+  try {
+    await sql`
+      INSERT INTO agent_threads (agent_key, thread_history)
+      VALUES (${agent.agent_key}, '[]'::jsonb)
+    `;
+  } catch {
+    // Already exists — skip silently
+  }
 
   // 4. Insert companies from seed.json that belong to this agent
   const companies = (seedData as SeedCompany[]).filter(c => c.agent_key === agent.agent_key);
