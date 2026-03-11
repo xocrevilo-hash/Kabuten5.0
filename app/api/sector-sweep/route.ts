@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import anthropic from '@/lib/claude';
 import sql from '@/lib/db';
