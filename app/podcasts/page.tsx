@@ -52,8 +52,8 @@ export default function PodcastsPage() {
     try {
       const res = await fetch('/api/podcasts');
       if (res.ok) {
-        const data = await res.json();
-        setSummaries(Array.isArray(data) ? data : []);
+        const { summaries } = await res.json();
+        setSummaries(Array.isArray(summaries) ? summaries : []);
       }
     } catch {
       // silent
@@ -84,62 +84,35 @@ export default function PodcastsPage() {
     setScanComplete(false);
     setLogLines([{ text: '⟳ Starting scanner…', type: 'scanning' }]);
 
-    // Start polling every 5s while scanning
-    pollRef.current = setInterval(fetchSummaries, 5000);
-
     try {
-      const res = await fetch('/api/podcasts/scan', {
-        method: 'POST',
-        credentials: 'include',
-      });
-
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Scan failed' }));
-        setLogLines(prev => [
-          ...prev,
-          { text: `✗ Error: ${err.error || 'Scan failed'}`, type: 'error' },
-        ]);
-        setIsScanning(false);
-        return;
-      }
-
-      const data = await res.json();
-      const newLines: LogLine[] = [];
-
-      if (data.results) {
-        for (const r of data.results) {
-          if (r.error) {
-            newLines.push({ text: `✗ ${r.podcast}: ${r.error}`, type: 'error' });
-          } else if (!r.hasRelevantContent) {
-            newLines.push({ text: `○ ${r.podcast}: no relevant content`, type: 'skip' });
+      for (const show of TRACKED_PODCASTS) {
+        setLogLines(prev => [...prev, { text: `⟳ Scanning ${show}…`, type: 'scanning' }]);
+        try {
+          const res = await fetch('/api/podcasts/scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ show }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || data.error) {
+            setLogLines(prev => [...prev, { text: `✗ ${show}: ${data.error || 'failed'}`, type: 'error' }]);
+          } else if (!data.hasRelevantContent) {
+            setLogLines(prev => [...prev, { text: `○ ${show}: no relevant content`, type: 'skip' }]);
           } else {
-            newLines.push({ text: `✓ ${r.podcast}`, type: 'ok' });
+            setLogLines(prev => [...prev, { text: `✓ ${show}`, type: 'ok' }]);
           }
+        } catch (e) {
+          setLogLines(prev => [...prev, { text: `✗ ${show}: ${String(e)}`, type: 'error' }]);
         }
       }
 
-      newLines.push({
-        text: `Done — ${data.withContent ?? 0}/${data.scanned ?? TRACKED_PODCASTS.length} episodes with relevant content`,
-        type: 'done',
-      });
-
-      setLogLines(prev => [...prev, ...newLines]);
+      const r = await fetch('/api/podcasts');
+      const { summaries } = await r.json();
+      setSummaries(summaries);
+      setLogLines(prev => [...prev, { text: 'Done.', type: 'done' }]);
       setScanComplete(true);
-      await fetchSummaries();
     } catch (err) {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-      setLogLines(prev => [
-        ...prev,
-        { text: `✗ Network error: ${String(err)}`, type: 'error' },
-      ]);
+      setLogLines(prev => [...prev, { text: `✗ Network error: ${String(err)}`, type: 'error' }]);
     } finally {
       setIsScanning(false);
     }

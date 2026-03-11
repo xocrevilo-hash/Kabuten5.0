@@ -1,59 +1,37 @@
+import { neon } from '@neondatabase/serverless';
 import { NextResponse } from 'next/server';
-import sql from '@/lib/db';
+
+const ALL_KEYWORDS = [
+  'NVDA','TSMC','ASML','AMD','Broadcom','HBM memory','CoWoS packaging',
+  'AI inference','Blackwell GPU','hyperscaler capex','data center buildout',
+  'semiconductor export controls','CHIPS Act','Tokyo Electron','Advantest',
+  'Lasertec','Samsung HBM','SK Hynix HBM','Micron earnings','CATL battery',
+  'BYD EV','Tesla demand','SoftBank Vision Fund','Alibaba earnings',
+  'Tencent earnings','iron ore price','copper price','lithium price',
+  'BOJ rate hike','JPY dollar','China stimulus','tariffs semiconductors',
+  'US China tech war','PCB supply chain','power grid AI','transformer shortage',
+  'networking optics','Marvell earnings','Arista Networks','Korea defence export',
+];
 
 export async function GET() {
   try {
-    // Get the most recent scan time
-    const latestRows = await sql`
-      SELECT MAX(scanned_at) as latest_scan FROM heatmap_scans
+    const sql = neon(process.env.DATABASE_URL!);
+    await sql`
+      CREATE TABLE IF NOT EXISTS heatmap_scans (
+        id SERIAL PRIMARY KEY, keyword TEXT NOT NULL,
+        heat_score NUMERIC(5,2), scanned_at TIMESTAMPTZ DEFAULT NOW()
+      )
     `;
-    const latestScan = latestRows[0]?.latest_scan;
-
-    if (!latestScan) {
-      return NextResponse.json({ scans: [], lastScan: null });
-    }
-
-    // Get the latest scan data for each keyword
-    const scans = await sql`
-      SELECT DISTINCT ON (keyword)
-        id, keyword, view_count, heat_score, scanned_at
-      FROM heatmap_scans
-      ORDER BY keyword, scanned_at DESC
+    const latest = await sql`
+      SELECT DISTINCT ON (keyword) keyword, heat_score, scanned_at
+      FROM heatmap_scans ORDER BY keyword, scanned_at DESC
     `;
-
-    // Get 7-day rolling averages per keyword
-    const avgs = await sql`
-      SELECT
-        keyword,
-        AVG(view_count) as avg_views,
-        COUNT(*) as scan_count
-      FROM heatmap_scans
-      WHERE scanned_at > NOW() - INTERVAL '7 days'
-      GROUP BY keyword
-    `;
-
-    const avgMap: Record<string, { avg_views: number; scan_count: number }> = {};
-    for (const row of avgs) {
-      avgMap[row.keyword] = {
-        avg_views: parseFloat(row.avg_views) || 0,
-        scan_count: parseInt(row.scan_count) || 0,
-      };
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = (scans as any[]).map((s) => ({
-      id: s.id,
-      keyword: s.keyword,
-      view_count: s.view_count,
-      heat_score: parseFloat(String(s.heat_score)) || 0,
-      scanned_at: s.scanned_at,
-      avg_views: avgMap[s.keyword]?.avg_views || 0,
-      scan_count: avgMap[s.keyword]?.scan_count || 0,
-    }));
-
-    return NextResponse.json({ scans: result, lastScan: latestScan });
-  } catch (err) {
-    console.error('Heatmap GET error:', err);
-    return NextResponse.json({ error: 'Failed to fetch heatmap data' }, { status: 500 });
+    return NextResponse.json({
+      scans: latest,
+      keywords: ALL_KEYWORDS,
+      lastScan: latest.length ? latest[0].scanned_at : null,
+    });
+  } catch {
+    return NextResponse.json({ scans: [], keywords: ALL_KEYWORDS, lastScan: null });
   }
 }

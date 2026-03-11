@@ -2,6 +2,12 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 
+const US_EXCHANGES = ['NASDAQ', 'NYSE', 'AMEX', 'CBOE', 'NYSE ARCA'];
+
+function fmtMC(n: number): string {
+  return n >= 1e12 ? `$${(n / 1e12).toFixed(1)}T` : `$${(n / 1e9).toFixed(0)}B`;
+}
+
 interface Company {
   id: number;
   name: string;
@@ -221,49 +227,64 @@ export default function CoveragePage() {
                     No companies match your filter.
                   </td>
                 </tr>
-              ) : sorted.map(c => {
-                const agentColour = c.agent_key ? (AGENT_COLOURS[c.agent_key] || 'bg-gray-100 text-gray-600') : '';
-                const ratingColour = c.rating ? (RATING_COLOURS[c.rating.toUpperCase()] || 'bg-gray-100 text-gray-600') : '';
-                const marketCap = c.bloomberg_market_cap ?? c.market_cap_usd;
-
-                return (
-                  <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
-                    <td className="px-4 py-2 text-gray-900 font-medium whitespace-nowrap">{c.name}</td>
-                    <td className="px-4 py-2 font-mono text-gray-700 whitespace-nowrap">{c.ticker}</td>
-                    <td className="px-4 py-2 text-gray-600 whitespace-nowrap">{c.exchange}</td>
-                    <td className="px-4 py-2 text-gray-600 whitespace-nowrap">{c.country}</td>
-                    <td className="px-4 py-2 text-gray-600 max-w-[200px] truncate">{c.sector || '—'}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">
-                      {c.agent_key ? (
-                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-mono font-semibold ${agentColour}`}>
-                          {c.agent_key.toUpperCase()}
-                        </span>
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-right font-mono text-gray-600 whitespace-nowrap">
-                      {formatMarketCap(marketCap)}
-                    </td>
-                    <td className="px-4 py-2 text-center whitespace-nowrap">
-                      {c.rating ? (
-                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-mono font-bold ${ratingColour}`}>
-                          {c.rating.toUpperCase()}
-                        </span>
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-right font-mono text-xs text-gray-500 whitespace-nowrap">
-                      {formatLastSweep(c.last_sweep)}
-                    </td>
-                  </tr>
-                );
-              })}
+              ) : sorted.map(c => (
+                <CompanyRow key={c.id} company={c} />
+              ))}
             </tbody>
           </table>
         </div>
       </div>
     </div>
+  );
+}
+
+function CompanyRow({ company: c }: { company: Company }) {
+  const [liveMarketCap, setLiveMarketCap] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!US_EXCHANGES.includes(c.exchange)) return;
+    fetch(`/api/market-cap?ticker=${encodeURIComponent(c.ticker)}`)
+      .then(r => r.json())
+      .then(d => { if (d.market_cap) setLiveMarketCap(d.market_cap); })
+      .catch(() => {});
+  }, [c.ticker, c.exchange]);
+
+  const agentColour = c.agent_key ? (AGENT_COLOURS[c.agent_key] || 'bg-gray-100 text-gray-600') : '';
+  const ratingColour = c.rating ? (RATING_COLOURS[c.rating.toUpperCase()] || 'bg-gray-100 text-gray-600') : '';
+  const bloombergCap = c.bloomberg_market_cap ?? c.market_cap_usd;
+  const displayCap = bloombergCap ?? liveMarketCap;
+
+  return (
+    <tr className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
+      <td className="px-4 py-2 text-gray-900 font-medium whitespace-nowrap">{c.name}</td>
+      <td className="px-4 py-2 font-mono text-gray-700 whitespace-nowrap">{c.ticker}</td>
+      <td className="px-4 py-2 text-gray-600 whitespace-nowrap">{c.exchange}</td>
+      <td className="px-4 py-2 text-gray-600 whitespace-nowrap">{c.country}</td>
+      <td className="px-4 py-2 text-gray-600 max-w-[200px] truncate">{c.sector || '—'}</td>
+      <td className="px-4 py-2 whitespace-nowrap">
+        {c.agent_key ? (
+          <span className={`inline-block px-2 py-0.5 rounded text-xs font-mono font-semibold ${agentColour}`}>
+            {c.agent_key.toUpperCase()}
+          </span>
+        ) : (
+          <span className="text-gray-300">—</span>
+        )}
+      </td>
+      <td className="px-4 py-2 text-right font-mono text-gray-600 whitespace-nowrap">
+        {displayCap ? fmtMC(displayCap) : '—'}
+      </td>
+      <td className="px-4 py-2 text-center whitespace-nowrap">
+        {c.rating ? (
+          <span className={`inline-block px-2 py-0.5 rounded text-xs font-mono font-bold ${ratingColour}`}>
+            {c.rating.toUpperCase()}
+          </span>
+        ) : (
+          <span className="text-gray-300">—</span>
+        )}
+      </td>
+      <td className="px-4 py-2 text-right font-mono text-xs text-gray-500 whitespace-nowrap">
+        {formatLastSweep(c.last_sweep)}
+      </td>
+    </tr>
   );
 }

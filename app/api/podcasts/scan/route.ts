@@ -4,33 +4,28 @@ import { NextResponse } from 'next/server';
 
 const client = new Anthropic();
 
-const PODCASTS = [
-  { name: 'A16Z Show',              slug: 'a16z-podcast' },
-  { name: 'All-In',                 slug: 'all-in-with-chamath-jason-sacks-friedberg' },
-  { name: 'BG2 Pod',                slug: 'bg2-pod' },
-  { name: 'Big Technology Podcast', slug: 'big-technology-podcast' },
-  { name: 'Bloomberg Tech',         slug: 'bloomberg-technology' },
-  { name: 'Hard Fork',              slug: 'hard-fork' },
-  { name: 'Odd Lots',               slug: 'odd-lots' },
-  { name: 'Semi-Doped',             slug: 'semi-doped' },
-  { name: 'The Circuit',            slug: 'the-circuit' },
-];
+const PODCASTS: Record<string, string> = {
+  'A16Z Show':                'a16z-podcast',
+  'All-In':                  'all-in-with-chamath-jason-sacks-friedberg',
+  'BG2 Pod':                 'bg2-pod',
+  'Big Technology Podcast':  'big-technology-podcast',
+  'Bloomberg Tech':          'bloomberg-technology',
+  'Hard Fork':               'hard-fork',
+  'Odd Lots':                'odd-lots',
+  'Semi-Doped':              'semi-doped',
+  'The Circuit':             'the-circuit',
+};
 
 function isAuthorized(request: Request): boolean {
-  // Path 1: Vercel cron or server-to-server
   const authHeader = request.headers.get('authorization') ?? '';
   if (authHeader === `Bearer ${process.env.CRON_SECRET}`) return true;
-
-  // Path 2: Browser session cookie
   const cookieHeader = request.headers.get('cookie') ?? '';
   const cookies: Record<string, string> = {};
   cookieHeader.split(';').forEach(part => {
     const [key, ...val] = part.trim().split('=');
     if (key) cookies[key.trim()] = val.join('=').trim();
   });
-  if (cookies['kabuten-auth'] === 'true') return true;
-
-  return false;
+  return cookies['kabuten-auth'] === 'true';
 }
 
 async function scanPodcast(podcastName: string, slug: string): Promise<{
@@ -71,15 +66,12 @@ If the latest episode has no relevant semiconductor/AI/bottleneck content, set h
     messages: [{ role: 'user', content: prompt }],
   });
 
-  // Same multi-block fix as sector-sweep: web_search responses emit preamble text
-  // blocks before the final JSON block — search last-to-first for the JSON block.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const textBlocks: string[] = (response.content as any[])
     .filter((b: any) => b.type === 'text')
     .map((b: any) => String(b.text ?? '').trim());
 
   let jsonText = '';
-
   for (let i = textBlocks.length - 1; i >= 0; i--) {
     let candidate = textBlocks[i];
     if (candidate.startsWith('```')) {
@@ -91,7 +83,6 @@ If the latest episode has no relevant semiconductor/AI/bottleneck content, set h
     }
   }
 
-  // Fallback: extract JSON object from anywhere in combined text
   if (!jsonText) {
     const allText = textBlocks.join('\n');
     const match = allText.match(/\{[\s\S]*\}/);
@@ -110,44 +101,50 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const sql = neon(process.env.DATABASE_URL!);
-  const results = [];
-  let withContent = 0;
-
-  for (const podcast of PODCASTS) {
-    try {
-      const result = await scanPodcast(podcast.name, podcast.slug);
-
-      if (result.hasRelevantContent) {
-        await sql`
-          INSERT INTO podcast_summaries
-            (podcast_name, episode_title, episode_date, bullets, tickers, source_url, has_relevant_content, scanned_at)
-          VALUES (
-            ${podcast.name},
-            ${result.episodeTitle},
-            ${result.episodeDate ? new Date(result.episodeDate) : null},
-            ${result.bullets},
-            ${result.tickers},
-            ${result.sourceUrl},
-            true,
-            NOW()
-          )
-          ON CONFLICT (podcast_name, episode_title)
-          DO UPDATE SET
-            bullets = EXCLUDED.bullets,
-            tickers = EXCLUDED.tickers,
-            source_url = EXCLUDED.source_url,
-            scanned_at = NOW()
-        `;
-        withContent++;
-      }
-
-      results.push({ podcast: podcast.name, ...result });
-    } catch (err) {
-      console.error(`[Podcast Scanner] Error scanning ${podcast.name}:`, err);
-      results.push({ podcast: podcast.name, error: String(err), hasRelevantContent: false });
-    }
+  let show: string;
+  try {
+    const body = await request.json();
+    show = body.show;
+  } catch {
+    return NextResponse.json({ error: 'Body must be JSON with { show: "Show Name" }' }, { status: 400 });
   }
 
-  return NextResponse.json({ scanned: PODCASTS.length, withContent, results });
+  const slug = PODCASTS[show];
+  if (!slug) {
+    return NextResponse.json({ error: `Unknown show: ${show}` }, { status: 400 });
+  }
+
+  const sql = neon(process.env.DATABASE_URL!);
+
+  try {
+    const result = await scanPodcast(show, slug);
+
+    if (result.hasRelevantContent) {
+      await sql`
+        INSERT INTO podcast_summaries
+          (podcast_name, episode_title, episode_date, bullets, tickers, source_url, has_relevant_content, scanned_at)
+        VALUES (
+          ${show},
+          ${result.episodeTitle},
+          ${result.episodeDate ? new Date(result.episodeDate) : null},
+          ${result.bullets},
+          ${result.tickers},
+          ${result.sourceUrl},
+          true,
+          NOW()
+        )
+        ON CONFLICT (podcast_name, episode_title)
+        DO UPDATE SET
+          bullets = EXCLUDED.bullets,
+          tickers = EXCLUDED.tickers,
+          source_url = EXCLUDED.source_url,
+          scanned_at = NOW()
+      `;
+    }
+
+    return NextResponse.json({ show, ...result });
+  } catch (err) {
+    console.error(`[Podcast Scanner] Error scanning ${show}:`, err);
+    return NextResponse.json({ show, error: String(err), hasRelevantContent: false }, { status: 500 });
+  }
 }
