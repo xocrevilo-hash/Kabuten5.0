@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch from financialdatasets.ai
-    const url = `https://api.financialdatasets.ai/company/facts?ticker=${encodeURIComponent(ticker)}`;
+    const url = `https://api.financialdatasets.ai/financial-metrics/snapshot/?ticker=${encodeURIComponent(ticker)}`;
     const headers: Record<string, string> = {};
     if (process.env.FINANCIAL_DATASETS_API_KEY) {
       headers['X-API-KEY'] = process.env.FINANCIAL_DATASETS_API_KEY;
@@ -52,9 +52,9 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await res.json();
-    const facts = data?.company_facts ?? data;
-    const marketCap = facts?.market_capitalization ?? facts?.market_cap ?? null;
-    const name = facts?.name ?? facts?.company_name ?? null;
+    const snapshot = data?.snapshot ?? data;
+    const marketCap = snapshot?.market_cap ?? null;
+    const name = snapshot?.company_name ?? snapshot?.name ?? null;
 
     if (marketCap) {
       await sql`
