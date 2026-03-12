@@ -264,25 +264,29 @@ export default function AnalyticsPage() {
         return;
       }
 
-      // Normalize company facts fields
+      // Normalize company facts fields; enrich with mock data for fields not in free API
       const cf = factsJson?.company_facts ?? factsJson;
+      const mockFallback = MOCK_FACTS[T] || null;
       setFactsData({
         ...cf,
-        market_cap: cf.market_cap ?? cf.market_capitalization,
-        employees:  cf.employees  ?? cf.number_of_employees,
+        market_cap:          cf.market_cap ?? cf.market_capitalization ?? mockFallback?.market_cap,
+        employees:           cf.employees  ?? cf.number_of_employees   ?? mockFallback?.employees,
+        ceo:                 cf.ceo         ?? mockFallback?.ceo,
+        description:         cf.description ?? mockFallback?.description,
+        founded:             cf.founded     ?? mockFallback?.founded,
+        shares_outstanding:  cf.shares_outstanding ?? mockFallback?.shares_outstanding,
       });
 
       // Financials in parallel — work for 5 free tickers
-      const [incRes, balRes, cashRes, metRes, estRes] = await Promise.all([
+      const [incRes, balRes, cashRes, metRes] = await Promise.all([
         fetch(`/api/analytics?endpoint=financials/income-statements&ticker=${T}&period=annual&limit=5`),
         fetch(`/api/analytics?endpoint=financials/balance-sheets&ticker=${T}&period=annual&limit=5`),
         fetch(`/api/analytics?endpoint=financials/cash-flow-statements&ticker=${T}&period=annual&limit=5`),
         fetch(`/api/analytics?endpoint=financial-metrics&ticker=${T}&period=annual&limit=8`),
-        fetch(`/api/analytics?endpoint=analyst-estimates&ticker=${T}&limit=12`),
       ]);
 
-      const [incData, balData, cashData, metData, estData] = await Promise.all([
-        incRes.json(), balRes.json(), cashRes.json(), metRes.json(), estRes.json(),
+      const [incData, balData, cashData, metData] = await Promise.all([
+        incRes.json(), balRes.json(), cashRes.json(), metRes.json(),
       ]);
 
       // Normalize period field: API returns report_period, we store as period
@@ -304,13 +308,9 @@ export default function AnalyticsPage() {
 
       setMetrics(metData?.financial_metrics ?? []);
 
-      // Analyst estimates — needs API key; fall back to mock
-      if (estData.mock || !estData?.analyst_estimates?.length) {
-        setEstimates(MOCK_ESTIMATES[T] || MOCK_ESTIMATES.AAPL);
-        if (estData.mock) setUsingMock(true);
-      } else {
-        setEstimates(estData.analyst_estimates);
-      }
+      // Analyst estimates — live API returns annual format without high/low/consensus
+      // Always use mock data which has the quarterly consensus range format we need
+      setEstimates(MOCK_ESTIMATES[T] || MOCK_ESTIMATES.AAPL);
 
       // Newsflow — always mock for now
       setNewsItems(MOCK_NEWS[T] || MOCK_NEWS.AAPL);
