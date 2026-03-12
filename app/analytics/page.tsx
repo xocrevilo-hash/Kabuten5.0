@@ -187,7 +187,15 @@ export default function AnalyticsPage() {
 
       setIsMock(false);
       const cf = factsData?.company_facts ?? factsData;
-      setFacts(cf);
+      // Normalize company facts field names
+      setFacts({
+        ...cf,
+        market_capitalization: cf.market_capitalization ?? cf.market_cap ?? undefined,
+        number_of_employees: cf.number_of_employees ?? cf.employees ?? undefined,
+        ceo: cf.ceo ?? undefined,
+        description: cf.description ?? cf.long_description ?? undefined,
+        website_url: cf.website_url ?? undefined,
+      });
 
       // Financials in parallel
       const [incRes, balRes, cashRes, metRes] = await Promise.all([
@@ -201,10 +209,28 @@ export default function AnalyticsPage() {
         incRes.json(), balRes.json(), cashRes.json(), metRes.json(),
       ]);
 
-      setIncome(incData?.income_statements ?? incData?.financials ?? []);
-      setBalance(balData?.balance_sheets ?? balData?.financials ?? []);
-      setCashflow(cashData?.cash_flow_statements ?? cashData?.financials ?? []);
-      setMetrics(metData?.financial_metrics ?? metData?.metrics ?? []);
+      // Normalize field names from financialdatasets.ai API
+      // API uses report_period; page uses period_of_report
+      // Cash flow API uses net_cash_flow_from_operations etc
+      const normalizeDate = (r: Record<string, unknown>) => ({
+        ...r,
+        period_of_report: r.period_of_report ?? r.report_period,
+      });
+      const normalizeCF = (r: Record<string, unknown>) => ({
+        ...normalizeDate(r),
+        operating_cash_flow: r.operating_cash_flow ?? r.net_cash_flow_from_operations,
+        investing_cash_flow: r.investing_cash_flow ?? r.net_cash_flow_from_investing,
+        financing_cash_flow: r.financing_cash_flow ?? r.net_cash_flow_from_financing,
+      });
+      const normalizeMetric = (r: Record<string, unknown>) => ({
+        ...normalizeDate(r),
+        ev_to_ebitda: r.ev_to_ebitda ?? r.enterprise_value_to_ebitda_ratio,
+      });
+
+      setIncome((incData?.income_statements ?? incData?.financials ?? []).map(normalizeDate));
+      setBalance((balData?.balance_sheets ?? balData?.financials ?? []).map(normalizeDate));
+      setCashflow((cashData?.cash_flow_statements ?? cashData?.financials ?? []).map(normalizeCF));
+      setMetrics((metData?.financial_metrics ?? metData?.metrics ?? []).map(normalizeMetric));
     } catch (err) {
       setError(String(err));
     } finally {

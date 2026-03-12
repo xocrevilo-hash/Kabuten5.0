@@ -11,11 +11,6 @@ export async function GET(request: NextRequest) {
 
   const apiKey = process.env.FINANCIAL_DATASETS_API_KEY;
 
-  // Return mock data if no API key configured
-  if (!apiKey) {
-    return NextResponse.json({ mock: true, endpoint, ticker });
-  }
-
   try {
     // Forward all search params except 'endpoint'
     const forwardParams = new URLSearchParams();
@@ -24,12 +19,19 @@ export async function GET(request: NextRequest) {
       if (key !== 'endpoint' && key !== 'ticker') forwardParams.set(key, val);
     });
 
-    const fdUrl = `https://api.financialdatasets.ai/${endpoint}?${forwardParams.toString()}`;
-    const res = await fetch(fdUrl, {
-      headers: { 'X-API-KEY': apiKey },
-    });
+    // Trailing slash required to avoid 301 redirect
+    const fdUrl = `https://api.financialdatasets.ai/${endpoint}/?${forwardParams.toString()}`;
+    const headers: Record<string, string> = {};
+    if (apiKey) headers['X-API-KEY'] = apiKey;
 
+    const res = await fetch(fdUrl, { headers });
     const data = await res.json();
+
+    // If upstream says API key required, signal mock mode
+    if (data?.error === 'Missing API key') {
+      return NextResponse.json({ mock: true, endpoint, ticker });
+    }
+
     return NextResponse.json(data, { status: res.status });
   } catch (err) {
     console.error('[analytics proxy] error:', err);
