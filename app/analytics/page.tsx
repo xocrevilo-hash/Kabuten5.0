@@ -32,48 +32,120 @@ const MOCK_FACTS: Record<string, CompanyFacts> = {
   },
 };
 
+// Annual FY estimates: [current FY, next FY]
 const MOCK_ESTIMATES: Record<string, AnalystEstimate[]> = {
   AAPL: [
-    {period:'2022-Q1',eps_consensus:1.42,eps_high:1.55,eps_low:1.30,revenue_consensus:94.0,revenue_high:97.5,revenue_low:90.1,num_analysts:31},
-    {period:'2022-Q2',eps_consensus:1.16,eps_high:1.22,eps_low:1.08,revenue_consensus:82.7,revenue_high:86.0,revenue_low:79.0,num_analysts:30},
-    {period:'2022-Q3',eps_consensus:1.27,eps_high:1.35,eps_low:1.18,revenue_consensus:89.2,revenue_high:92.4,revenue_low:85.5,num_analysts:32},
-    {period:'2022-Q4',eps_consensus:1.94,eps_high:2.05,eps_low:1.80,revenue_consensus:121.5,revenue_high:127.0,revenue_low:116.0,num_analysts:34},
-    {period:'2023-Q1',eps_consensus:1.43,eps_high:1.54,eps_low:1.33,revenue_consensus:92.9,revenue_high:96.2,revenue_low:88.8,num_analysts:33},
-    {period:'2023-Q2',eps_consensus:1.19,eps_high:1.27,eps_low:1.11,revenue_consensus:81.7,revenue_high:84.5,revenue_low:78.4,num_analysts:31},
-    {period:'2023-Q3',eps_consensus:1.39,eps_high:1.47,eps_low:1.30,revenue_consensus:89.3,revenue_high:92.8,revenue_low:85.4,num_analysts:34},
-    {period:'2023-Q4',eps_consensus:2.10,eps_high:2.22,eps_low:1.97,revenue_consensus:117.9,revenue_high:123.5,revenue_low:113.0,num_analysts:36},
-    {period:'2024-Q1',eps_consensus:1.50,eps_high:1.61,eps_low:1.39,revenue_consensus:90.3,revenue_high:93.7,revenue_low:86.5,num_analysts:35},
-    {period:'2024-Q2',eps_consensus:1.34,eps_high:1.43,eps_low:1.25,revenue_consensus:84.4,revenue_high:87.9,revenue_low:80.7,num_analysts:33},
-    {period:'2024-Q3',eps_consensus:1.58,eps_high:1.68,eps_low:1.47,revenue_consensus:94.2,revenue_high:97.8,revenue_low:90.1,num_analysts:36},
-    {period:'2024-Q4',eps_consensus:2.36,eps_high:2.50,eps_low:2.21,revenue_consensus:124.1,revenue_high:130.0,revenue_low:118.5,num_analysts:38},
+    {period:'FY2025',eps_consensus:7.35,eps_median:7.30,eps_high:7.70,eps_low:7.05,eps_stddev:0.18,wk4_change:0.08,wk4_up:14,wk4_down:4,revenue_consensus:411.0,revenue_high:425.0,revenue_low:398.0,num_analysts:42,est_pe:30.2},
+    {period:'FY2026',eps_consensus:8.22,eps_median:8.18,eps_high:8.65,eps_low:7.85,eps_stddev:0.22,wk4_change:0.12,wk4_up:18,wk4_down:3,revenue_consensus:447.0,revenue_high:468.0,revenue_low:430.0,num_analysts:39,est_pe:27.1},
   ],
   NVDA: [
-    {period:'2022-Q1',eps_consensus:1.29,eps_high:1.36,eps_low:1.21,revenue_consensus:8.1,revenue_high:8.6,revenue_low:7.7,num_analysts:28},
-    {period:'2022-Q2',eps_consensus:1.25,eps_high:1.35,eps_low:1.12,revenue_consensus:8.1,revenue_high:8.7,revenue_low:7.5,num_analysts:28},
-    {period:'2022-Q3',eps_consensus:0.71,eps_high:0.85,eps_low:0.58,revenue_consensus:5.9,revenue_high:6.5,revenue_low:5.4,num_analysts:29},
-    {period:'2022-Q4',eps_consensus:0.81,eps_high:0.92,eps_low:0.72,revenue_consensus:6.0,revenue_high:6.5,revenue_low:5.6,num_analysts:30},
-    {period:'2023-Q1',eps_consensus:0.92,eps_high:1.05,eps_low:0.82,revenue_consensus:6.5,revenue_high:7.2,revenue_low:6.0,num_analysts:31},
-    {period:'2023-Q2',eps_consensus:2.09,eps_high:2.30,eps_low:1.90,revenue_consensus:11.0,revenue_high:12.0,revenue_low:10.2,num_analysts:34},
-    {period:'2023-Q3',eps_consensus:3.37,eps_high:3.65,eps_low:3.10,revenue_consensus:16.1,revenue_high:17.0,revenue_low:15.0,num_analysts:38},
-    {period:'2023-Q4',eps_consensus:4.59,eps_high:4.90,eps_low:4.28,revenue_consensus:20.4,revenue_high:21.8,revenue_low:19.2,num_analysts:40},
-    {period:'2024-Q1',eps_consensus:5.57,eps_high:5.95,eps_low:5.20,revenue_consensus:24.6,revenue_high:26.0,revenue_low:23.0,num_analysts:42},
-    {period:'2024-Q2',eps_consensus:0.64,eps_high:0.70,eps_low:0.59,revenue_consensus:28.6,revenue_high:30.2,revenue_low:27.0,num_analysts:44},
-    {period:'2024-Q3',eps_consensus:0.74,eps_high:0.81,eps_low:0.68,revenue_consensus:33.1,revenue_high:35.0,revenue_low:31.5,num_analysts:45},
-    {period:'2024-Q4',eps_consensus:0.85,eps_high:0.94,eps_low:0.77,revenue_consensus:38.0,revenue_high:40.5,revenue_low:36.0,num_analysts:46},
+    {period:'FY2027',eps_consensus:8.31,eps_median:8.11,eps_high:9.90,eps_low:7.62,eps_stddev:0.496,wk4_change:0.572,wk4_up:53,wk4_down:10,revenue_consensus:195.0,revenue_high:212.0,revenue_low:180.0,num_analysts:49,est_pe:22.2},
+    {period:'FY2028',eps_consensus:10.88,eps_median:10.60,eps_high:13.85,eps_low:8.23,eps_stddev:1.095,wk4_change:0.886,wk4_up:41,wk4_down:8,revenue_consensus:252.0,revenue_high:282.0,revenue_low:225.0,num_analysts:47,est_pe:16.9},
   ],
   MSFT: [
-    {period:'2022-Q1',eps_consensus:2.19,eps_high:2.28,eps_low:2.09,revenue_consensus:49.0,revenue_high:50.8,revenue_low:47.3,num_analysts:30},
-    {period:'2022-Q2',eps_consensus:2.29,eps_high:2.40,eps_low:2.18,revenue_consensus:52.4,revenue_high:54.2,revenue_low:50.5,num_analysts:31},
-    {period:'2022-Q3',eps_consensus:2.30,eps_high:2.42,eps_low:2.19,revenue_consensus:49.6,revenue_high:51.5,revenue_low:47.9,num_analysts:32},
-    {period:'2022-Q4',eps_consensus:2.32,eps_high:2.44,eps_low:2.20,revenue_consensus:52.7,revenue_high:54.5,revenue_low:50.8,num_analysts:32},
-    {period:'2023-Q1',eps_consensus:2.45,eps_high:2.57,eps_low:2.33,revenue_consensus:52.9,revenue_high:54.8,revenue_low:50.9,num_analysts:33},
-    {period:'2023-Q2',eps_consensus:2.55,eps_high:2.68,eps_low:2.43,revenue_consensus:55.4,revenue_high:57.5,revenue_low:53.4,num_analysts:34},
-    {period:'2023-Q3',eps_consensus:2.65,eps_high:2.79,eps_low:2.52,revenue_consensus:54.5,revenue_high:56.5,revenue_low:52.5,num_analysts:34},
-    {period:'2023-Q4',eps_consensus:2.78,eps_high:2.93,eps_low:2.64,revenue_consensus:61.1,revenue_high:63.2,revenue_low:58.9,num_analysts:36},
-    {period:'2024-Q1',eps_consensus:2.82,eps_high:2.97,eps_low:2.68,revenue_consensus:60.8,revenue_high:63.0,revenue_low:58.7,num_analysts:36},
-    {period:'2024-Q2',eps_consensus:2.93,eps_high:3.08,eps_low:2.78,revenue_consensus:64.4,revenue_high:66.7,revenue_low:62.2,num_analysts:37},
-    {period:'2024-Q3',eps_consensus:3.10,eps_high:3.27,eps_low:2.95,revenue_consensus:64.6,revenue_high:67.0,revenue_low:62.4,num_analysts:37},
-    {period:'2024-Q4',eps_consensus:3.23,eps_high:3.41,eps_low:3.06,revenue_consensus:69.1,revenue_high:71.6,revenue_low:66.7,num_analysts:38},
+    {period:'FY2025',eps_consensus:13.18,eps_median:13.20,eps_high:13.55,eps_low:12.80,eps_stddev:0.19,wk4_change:0.15,wk4_up:22,wk4_down:5,revenue_consensus:279.0,revenue_high:285.0,revenue_low:273.0,num_analysts:44,est_pe:29.4},
+    {period:'FY2026',eps_consensus:15.48,eps_median:15.50,eps_high:16.10,eps_low:14.90,eps_stddev:0.31,wk4_change:0.18,wk4_up:26,wk4_down:4,revenue_consensus:318.0,revenue_high:330.0,revenue_low:308.0,num_analysts:42,est_pe:25.0},
+  ],
+  GOOGL: [
+    {period:'FY2025',eps_consensus:8.95,eps_median:8.90,eps_high:9.40,eps_low:8.55,eps_stddev:0.21,wk4_change:0.10,wk4_up:19,wk4_down:6,revenue_consensus:369.0,revenue_high:382.0,revenue_low:358.0,num_analysts:46,est_pe:20.1},
+    {period:'FY2026',eps_consensus:10.42,eps_median:10.35,eps_high:11.00,eps_low:9.90,eps_stddev:0.28,wk4_change:0.14,wk4_up:21,wk4_down:5,revenue_consensus:415.0,revenue_high:432.0,revenue_low:400.0,num_analysts:43,est_pe:17.3},
+  ],
+  TSLA: [
+    {period:'FY2025',eps_consensus:2.84,eps_median:2.70,eps_high:3.50,eps_low:1.80,eps_stddev:0.48,wk4_change:-0.22,wk4_up:8,wk4_down:19,revenue_consensus:113.0,revenue_high:128.0,revenue_low:98.0,num_analysts:38,est_pe:104.6},
+    {period:'FY2026',eps_consensus:4.45,eps_median:4.20,eps_high:5.80,eps_low:2.90,eps_stddev:0.82,wk4_change:-0.35,wk4_up:9,wk4_down:17,revenue_consensus:148.0,revenue_high:175.0,revenue_low:120.0,num_analysts:36,est_pe:66.9},
+  ],
+};
+
+// EPS revision history — monthly consensus snapshots for the line chart
+const MOCK_REVISION_HISTORY: Record<string, RevisionPoint[]> = {
+  AAPL: [
+    {date:'Jan 24',curFY:6.62,nxtFY:7.45},{date:'Mar 24',curFY:6.70,nxtFY:7.52},{date:'May 24',curFY:6.75,nxtFY:7.58},
+    {date:'Jul 24',curFY:6.88,nxtFY:7.72},{date:'Sep 24',curFY:7.05,nxtFY:7.85},{date:'Nov 24',curFY:7.18,nxtFY:7.98},
+    {date:'Jan 25',curFY:7.22,nxtFY:8.05},{date:'Mar 25',curFY:7.28,nxtFY:8.12},{date:'May 25',curFY:7.31,nxtFY:8.16},
+    {date:'Jul 25',curFY:7.33,nxtFY:8.18},{date:'Sep 25',curFY:7.35,nxtFY:8.20},{date:'Nov 25',curFY:7.35,nxtFY:8.21},
+    {date:'Jan 26',curFY:7.35,nxtFY:8.22},{date:'Mar 26',curFY:7.35,nxtFY:8.22},
+  ],
+  NVDA: [
+    {date:'Jan 22',curFY:0.32,nxtFY:null},{date:'Jul 22',curFY:0.35,nxtFY:null},
+    {date:'Jan 23',curFY:0.88,nxtFY:1.10},{date:'Apr 23',curFY:1.65,nxtFY:2.20},{date:'Jul 23',curFY:2.80,nxtFY:3.90},
+    {date:'Oct 23',curFY:3.40,nxtFY:4.60},{date:'Jan 24',curFY:4.10,nxtFY:5.30},{date:'Apr 24',curFY:5.20,nxtFY:6.50},
+    {date:'Jul 24',curFY:6.20,nxtFY:7.80},{date:'Oct 24',curFY:6.80,nxtFY:8.50},{date:'Jan 25',curFY:7.20,nxtFY:9.10},
+    {date:'Apr 25',curFY:7.60,nxtFY:9.60},{date:'Jul 25',curFY:7.90,nxtFY:10.10},{date:'Oct 25',curFY:8.10,nxtFY:10.50},
+    {date:'Jan 26',curFY:8.25,nxtFY:10.78},{date:'Mar 26',curFY:8.31,nxtFY:10.88},
+  ],
+  MSFT: [
+    {date:'Jan 24',curFY:11.60,nxtFY:13.20},{date:'Mar 24',curFY:11.75,nxtFY:13.40},{date:'May 24',curFY:11.90,nxtFY:13.60},
+    {date:'Jul 24',curFY:12.10,nxtFY:13.80},{date:'Sep 24',curFY:12.35,nxtFY:14.10},{date:'Nov 24',curFY:12.65,nxtFY:14.50},
+    {date:'Jan 25',curFY:12.80,nxtFY:14.80},{date:'Mar 25',curFY:12.95,nxtFY:15.00},{date:'May 25',curFY:13.05,nxtFY:15.20},
+    {date:'Jul 25',curFY:13.10,nxtFY:15.30},{date:'Sep 25',curFY:13.14,nxtFY:15.38},{date:'Nov 25',curFY:13.16,nxtFY:15.44},
+    {date:'Jan 26',curFY:13.18,nxtFY:15.48},{date:'Mar 26',curFY:13.18,nxtFY:15.48},
+  ],
+  GOOGL: [
+    {date:'Jan 24',curFY:7.20,nxtFY:8.50},{date:'Mar 24',curFY:7.35,nxtFY:8.65},{date:'May 24',curFY:7.50,nxtFY:8.80},
+    {date:'Jul 24',curFY:7.68,nxtFY:9.00},{date:'Sep 24',curFY:7.82,nxtFY:9.20},{date:'Nov 24',curFY:7.95,nxtFY:9.45},
+    {date:'Jan 25',curFY:8.10,nxtFY:9.70},{date:'Mar 25',curFY:8.25,nxtFY:9.90},{date:'May 25',curFY:8.38,nxtFY:10.05},
+    {date:'Jul 25',curFY:8.50,nxtFY:10.15},{date:'Sep 25',curFY:8.65,nxtFY:10.22},{date:'Nov 25',curFY:8.78,nxtFY:10.30},
+    {date:'Jan 26',curFY:8.88,nxtFY:10.38},{date:'Mar 26',curFY:8.95,nxtFY:10.42},
+  ],
+  TSLA: [
+    {date:'Jan 24',curFY:3.80,nxtFY:5.20},{date:'Mar 24',curFY:3.40,nxtFY:4.90},{date:'May 24',curFY:2.90,nxtFY:4.60},
+    {date:'Jul 24',curFY:2.60,nxtFY:4.30},{date:'Sep 24',curFY:2.50,nxtFY:4.20},{date:'Nov 24',curFY:2.55,nxtFY:4.10},
+    {date:'Jan 25',curFY:2.70,nxtFY:4.30},{date:'Mar 25',curFY:2.80,nxtFY:4.40},{date:'May 25',curFY:2.90,nxtFY:4.45},
+    {date:'Jul 25',curFY:2.85,nxtFY:4.42},{date:'Sep 25',curFY:2.82,nxtFY:4.40},{date:'Nov 25',curFY:2.83,nxtFY:4.44},
+    {date:'Jan 26',curFY:2.84,nxtFY:4.45},{date:'Mar 26',curFY:2.84,nxtFY:4.45},
+  ],
+};
+
+// Individual analyst estimates
+const MOCK_ANALYSTS: Record<string, AnalystRow[]> = {
+  AAPL: [
+    {firm:'Morgan Stanley',     analyst:'Erik Woodring',     date:'03/10/26',curFY:7.55,curChange:0.05, nxtFY:8.45,nxtChange:0.10},
+    {firm:'Goldman Sachs',      analyst:'Michael Ng',        date:'03/10/26',curFY:7.40,curChange:0.00, nxtFY:8.30,nxtChange:0.05},
+    {firm:'Bank of America',    analyst:'Wamsi Mohan',       date:'03/09/26',curFY:7.35,curChange:0.08, nxtFY:8.22,nxtChange:0.12},
+    {firm:'Wedbush',            analyst:'Daniel Ives',       date:'03/07/26',curFY:7.60,curChange:0.10, nxtFY:8.55,nxtChange:0.15},
+    {firm:'Barclays',           analyst:'Tim Long',          date:'03/06/26',curFY:7.20,curChange:0.00, nxtFY:8.05,nxtChange:0.00},
+    {firm:'Deutsche Bank',      analyst:'Sidney Ho',         date:'03/05/26',curFY:7.30,curChange:-0.05,nxtFY:8.10,nxtChange:-0.08},
+    {firm:'Citi',               analyst:'Atif Malik',        date:'03/03/26',curFY:7.38,curChange:0.03, nxtFY:8.20,nxtChange:0.05},
+    {firm:'UBS',                analyst:'David Vogt',        date:'02/28/26',curFY:7.25,curChange:0.00, nxtFY:8.12,nxtChange:0.00},
+  ],
+  NVDA: [
+    {firm:'President Capital',  analyst:'Jin Chang',         date:'03/11/26',curFY:7.90,curChange:0.00, nxtFY:11.20,nxtChange:0.00},
+    {firm:'Truist Securities',  analyst:'William Stein',     date:'03/10/26',curFY:7.62,curChange:0.00, nxtFY:10.12,nxtChange:0.00},
+    {firm:'Haitong Intl',       analyst:'Barney Yao',        date:'03/10/26',curFY:8.76,curChange:0.00, nxtFY:12.28,nxtChange:0.00},
+    {firm:'BofA Securities',    analyst:'Vivek Arya',        date:'03/09/26',curFY:8.11,curChange:0.00, nxtFY:10.72,nxtChange:0.00},
+    {firm:'Huatai Research',    analyst:'Purdy Ho',          date:'03/06/26',curFY:9.40,curChange:0.00, nxtFY:11.90,nxtChange:0.00},
+    {firm:'Deutsche Bank',      analyst:'Ross Seymore',      date:'03/03/26',curFY:8.50,curChange:0.02, nxtFY:11.20,nxtChange:-0.07},
+    {firm:'CLSA',               analyst:'Bhavtosh Vajpayee', date:'03/03/26',curFY:8.30,curChange:0.98, nxtFY:10.60,nxtChange:1.27},
+    {firm:'Craig-Hallum',       analyst:'Richard C Shannon', date:'03/02/26',curFY:9.90,curChange:2.38, nxtFY:13.85,nxtChange:3.70},
+    {firm:'Morgan Stanley',     analyst:'Joseph L Moore',    date:'02/26/26',curFY:7.93,curChange:0.12, nxtFY:10.14,nxtChange:0.28},
+    {firm:'Goldman Sachs',      analyst:'Toshiya Hari',      date:'02/25/26',curFY:8.20,curChange:0.30, nxtFY:10.80,nxtChange:0.50},
+  ],
+  MSFT: [
+    {firm:'Morgan Stanley',     analyst:'Keith Weiss',       date:'03/10/26',curFY:13.30,curChange:0.10,nxtFY:15.65,nxtChange:0.12},
+    {firm:'Goldman Sachs',      analyst:'Kash Rangan',       date:'03/09/26',curFY:13.20,curChange:0.05,nxtFY:15.55,nxtChange:0.08},
+    {firm:'Wedbush',            analyst:'Daniel Ives',       date:'03/07/26',curFY:13.40,curChange:0.15,nxtFY:15.80,nxtChange:0.20},
+    {firm:'Citi',               analyst:'Tyler Radke',       date:'03/05/26',curFY:13.10,curChange:0.00,nxtFY:15.40,nxtChange:0.00},
+    {firm:'Deutsche Bank',      analyst:'Brad Zelnick',      date:'03/03/26',curFY:13.15,curChange:0.05,nxtFY:15.45,nxtChange:0.05},
+    {firm:'Bank of America',    analyst:'Brad Sills',        date:'02/28/26',curFY:13.18,curChange:0.08,nxtFY:15.48,nxtChange:0.10},
+    {firm:'Barclays',           analyst:'Raimo Lenschow',    date:'02/25/26',curFY:12.90,curChange:-0.05,nxtFY:15.20,nxtChange:-0.08},
+  ],
+  GOOGL: [
+    {firm:'Morgan Stanley',     analyst:'Brian Nowak',       date:'03/10/26',curFY:9.10,curChange:0.12, nxtFY:10.60,nxtChange:0.15},
+    {firm:'Goldman Sachs',      analyst:'Eric Sheridan',     date:'03/09/26',curFY:8.95,curChange:0.05, nxtFY:10.42,nxtChange:0.08},
+    {firm:'Bank of America',    analyst:'Justin Post',       date:'03/07/26',curFY:9.00,curChange:0.10, nxtFY:10.50,nxtChange:0.12},
+    {firm:'UBS',                analyst:'Lloyd Walmsley',    date:'03/05/26',curFY:8.80,curChange:0.00, nxtFY:10.25,nxtChange:0.00},
+    {firm:'Barclays',           analyst:'Ross Sandler',      date:'03/03/26',curFY:8.85,curChange:0.05, nxtFY:10.30,nxtChange:0.05},
+    {firm:'Deutsche Bank',      analyst:'Benjamin Black',    date:'02/28/26',curFY:8.90,curChange:0.08, nxtFY:10.38,nxtChange:0.10},
+    {firm:'Citi',               analyst:'Ronald Josey',      date:'02/25/26',curFY:9.05,curChange:0.15, nxtFY:10.55,nxtChange:0.18},
+  ],
+  TSLA: [
+    {firm:'Wedbush',            analyst:'Daniel Ives',       date:'03/10/26',curFY:3.20,curChange:-0.10,nxtFY:4.90,nxtChange:-0.20},
+    {firm:'Morgan Stanley',     analyst:'Adam Jonas',        date:'03/09/26',curFY:2.90,curChange:-0.20,nxtFY:4.50,nxtChange:-0.30},
+    {firm:'Goldman Sachs',      analyst:'Mark Delaney',      date:'03/07/26',curFY:2.65,curChange:-0.30,nxtFY:4.10,nxtChange:-0.40},
+    {firm:'Barclays',           analyst:'Dan Levy',          date:'03/05/26',curFY:2.50,curChange:-0.35,nxtFY:3.80,nxtChange:-0.50},
+    {firm:'Deutsche Bank',      analyst:'Emmanuel Rosner',   date:'03/03/26',curFY:2.80,curChange:-0.15,nxtFY:4.30,nxtChange:-0.25},
+    {firm:'Bank of America',    analyst:'John Murphy',       date:'02/28/26',curFY:3.10,curChange:-0.08,nxtFY:4.70,nxtChange:-0.15},
+    {firm:'Citi',               analyst:'Itay Michaeli',     date:'02/25/26',curFY:2.70,curChange:-0.22,nxtFY:4.20,nxtChange:-0.32},
   ],
 };
 
@@ -125,7 +197,10 @@ interface CompanyFacts {
 interface AnalystEstimate {
   period: string; eps_consensus: number; eps_high: number; eps_low: number;
   revenue_consensus: number; revenue_high: number; revenue_low: number; num_analysts: number;
+  eps_median?: number; eps_stddev?: number; wk4_change?: number; wk4_up?: number; wk4_down?: number; est_pe?: number;
 }
+interface RevisionPoint { date: string; curFY: number | null; nxtFY: number | null; }
+interface AnalystRow { firm: string; analyst: string; date: string; curFY: number; curChange: number; nxtFY: number; nxtChange: number; }
 
 interface NewsItem {
   date: string; type: string; tag: string; title: string; source: string; snippet: string;
@@ -237,7 +312,6 @@ export default function AnalyticsPage() {
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
 
   // UI toggles
-  const [estMetric,  setEstMetric]  = useState<'eps'|'revenue'|'analysts'>('eps');
   const [valMetric,  setValMetric]  = useState('pe_ratio');
   const [finTab,     setFinTab]     = useState<'income'|'balance'|'cashflow'>('income');
   const [newsFilter, setNewsFilter] = useState('ALL');
@@ -334,16 +408,9 @@ export default function AnalyticsPage() {
     if (t) { setTicker(t); loadData(t); }
   };
 
-  // ── Estimates chart data
-  const estChart = estimates.map(e => ({
-    period: e.period,
-    'Consensus EPS': e.eps_consensus, 'High EPS': e.eps_high, 'Low EPS': e.eps_low,
-    'Consensus Rev': e.revenue_consensus, 'High Rev': e.revenue_high, 'Low Rev': e.revenue_low,
-    'Analysts': e.num_analysts,
-  }));
-  const latEst  = estimates.at(-1);
-  const prevEst = estimates.at(-2);
-  const epsChg  = latEst && prevEst ? ((latEst.eps_consensus - prevEst.eps_consensus) / Math.abs(prevEst.eps_consensus) * 100) : null;
+  // ── Estimates — current FY (index 0) and next FY (index 1)
+  const curEst = estimates[0];
+  const nxtEst = estimates[1];
 
   // ── Valuation chart data — use live annual metrics if available, else derive from estimates
   const VMAP: Record<string,string> = {
@@ -517,60 +584,131 @@ export default function AnalyticsPage() {
         )}
 
         {/* ══ SECTION 2 — ANALYST ESTIMATES */}
-        {estimates.length > 0 && (
+        {estimates.length > 0 && (() => {
+          const revHistory = MOCK_REVISION_HISTORY[ticker] ?? MOCK_REVISION_HISTORY.AAPL;
+          const analysts   = MOCK_ANALYSTS[ticker]          ?? MOCK_ANALYSTS.AAPL;
+          const mono = "'IBM Plex Mono',monospace";
+          const chgColor = (v: number) => v > 0 ? '#4ade80' : v < 0 ? '#f87171' : '#6b7280';
+          const chgFmt   = (v: number) => v === 0 ? '0.00' : (v > 0 ? '+' : '') + v.toFixed(2);
+          // stats table rows: [label, curVal, nxtVal]
+          type StatRow = [string, string, string, boolean?];
+          const rows: StatRow[] = curEst && nxtEst ? [
+            ['Mean Consensus',   `$${fmt(curEst.eps_consensus)}`,   `$${fmt(nxtEst.eps_consensus)}`],
+            ['Median Consensus', `$${fmt(curEst.eps_median)}`,      `$${fmt(nxtEst.eps_median)}`],
+            ['High Consensus',   `$${fmt(curEst.eps_high)}`,        `$${fmt(nxtEst.eps_high)}`],
+            ['Low Consensus',    `$${fmt(curEst.eps_low)}`,         `$${fmt(nxtEst.eps_low)}`],
+            ['Std Deviation',    fmt(curEst.eps_stddev),             fmt(nxtEst.eps_stddev)],
+            ['4-Week Change',    chgFmt(curEst.wk4_change ?? 0),    chgFmt(nxtEst.wk4_change ?? 0), true],
+            ['4-Wk Up / Down',   `${curEst.wk4_up}/${curEst.wk4_down}`, `${nxtEst.wk4_up}/${nxtEst.wk4_down}`],
+            ['# Estimates',      String(curEst.num_analysts),       String(nxtEst.num_analysts)],
+            ['Est P/E',          curEst.est_pe ? `${fmt(curEst.est_pe,1)}x` : '—', nxtEst.est_pe ? `${fmt(nxtEst.est_pe,1)}x` : '—'],
+          ] : [];
+          return (
           <div style={{marginBottom:28}}>
-            <SecLabel title="ANALYST ESTIMATES" sub="QUARTERLY EPS & REVENUE CONSENSUS · /analyst-estimates"/>
-            <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
-              <Stat label="EPS CONSENSUS"     value={latEst ? `$${fmt(latEst.eps_consensus)}` : '—'}
-                    sub={epsChg != null ? `${epsChg > 0 ? '▲' : '▼'} ${Math.abs(epsChg).toFixed(1)}% QoQ` : ''}
-                    subColor={epsChg != null ? (epsChg > 0 ? '#4ade80' : '#f87171') : undefined}/>
-              <Stat label="EPS RANGE"         value={latEst ? `$${fmt(latEst.eps_low)} – $${fmt(latEst.eps_high)}` : '—'} sub="analyst spread"/>
-              <Stat label="REVENUE CONSENSUS" value={latEst ? fmtB(latEst.revenue_consensus) : '—'}/>
-              <Stat label="ANALYSTS COVERING" value={latEst?.num_analysts ?? '—'} sub={`${ticker} this quarter`}/>
+            <SecLabel title="EPS CONSENSUS REVISIONS" sub="ANNUAL · CURRENT & NEXT FY · MOCK DATA"/>
+
+            {/* ── Top: stats table + revision chart side by side ── */}
+            <div style={{display:'grid',gridTemplateColumns:'300px 1fr',background:'#0d1117',border:'1px solid #1e2a3a',marginBottom:1}}>
+
+              {/* Left: stats table */}
+              <div style={{borderRight:'1px solid #1e2a3a'}}>
+                {/* header */}
+                <div style={{display:'grid',gridTemplateColumns:'1fr 90px 90px',borderBottom:'1px solid #1e2a3a',
+                  padding:'8px 12px',gap:4,background:'#0a0e17'}}>
+                  <div style={{fontSize:9,color:'#4a5568',letterSpacing:'.1em',fontFamily:mono}}>METRIC · EPS ADJ</div>
+                  <div style={{fontSize:10,fontWeight:700,color:'#f0c040',fontFamily:mono,textAlign:'right',letterSpacing:'.04em'}}>{curEst?.period}</div>
+                  <div style={{fontSize:10,fontWeight:700,color:'#3b82f6',fontFamily:mono,textAlign:'right',letterSpacing:'.04em'}}>{nxtEst?.period}</div>
+                </div>
+                {rows.map(([label, cv, nv, isChg], i) => (
+                  <div key={label} style={{display:'grid',gridTemplateColumns:'1fr 90px 90px',
+                    padding:'6px 12px',gap:4,borderBottom:'1px solid #1e2a3a22',
+                    background: i % 2 === 0 ? 'transparent' : '#0a0e1744'}}>
+                    <div style={{fontSize:11,color:'#8b949e',fontFamily:mono}}>{label}</div>
+                    <div style={{fontSize:11,fontFamily:mono,textAlign:'right',
+                      color: isChg ? chgColor(curEst?.wk4_change ?? 0) : '#e2e8f0'}}>{cv}</div>
+                    <div style={{fontSize:11,fontFamily:mono,textAlign:'right',
+                      color: isChg ? chgColor(nxtEst?.wk4_change ?? 0) : '#e2e8f0'}}>{nv}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Right: revision line chart */}
+              <div style={{padding:'12px 16px 8px 8px'}}>
+                {/* legend */}
+                <div style={{display:'flex',gap:16,marginBottom:6,paddingLeft:4}}>
+                  <div style={{display:'flex',alignItems:'center',gap:5}}>
+                    <div style={{width:24,height:2,background:'#f0c040'}}/>
+                    <span style={{fontSize:9,color:'#f0c040',fontFamily:mono,letterSpacing:'.06em'}}>{curEst?.period} MEAN</span>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:5}}>
+                    <div style={{width:24,height:2,background:'#3b82f6'}}/>
+                    <span style={{fontSize:9,color:'#3b82f6',fontFamily:mono,letterSpacing:'.06em'}}>{nxtEst?.period} MEAN</span>
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={195}>
+                  <ComposedChart data={revHistory} margin={{top:4,right:40,bottom:0,left:0}}>
+                    <CartesianGrid stroke="#1e2a3a" strokeDasharray="2 4" vertical={false}/>
+                    <XAxis dataKey="date" tick={{fill:'#4a5568',fontSize:9,fontFamily:mono}} axisLine={false} tickLine={false}
+                      tickFormatter={(v:string)=> v.includes('Jan') || v.includes('Jul') ? v : ''} interval={0}/>
+                    <YAxis tick={{fill:'#4a5568',fontSize:9,fontFamily:mono}} axisLine={false} tickLine={false}
+                      tickFormatter={(v:number)=>`$${v.toFixed(2)}`} width={44} orientation="right"
+                      domain={['auto','auto']}/>
+                    <Tooltip
+                      contentStyle={{background:'#0d1117',border:'1px solid #1e2a3a',borderRadius:2,padding:'6px 10px'}}
+                      labelStyle={{color:'#8b949e',fontSize:9,fontFamily:mono,marginBottom:4}}
+                      formatter={(v:unknown,name:unknown)=>[`$${Number(v).toFixed(2)}`, name==='curFY'?curEst?.period:nxtEst?.period]}
+                      itemStyle={{fontSize:10,fontFamily:mono}}/>
+                    <Line type="monotone" dataKey="curFY" stroke="#f0c040" strokeWidth={1.5} dot={false} connectNulls/>
+                    <Line type="monotone" dataKey="nxtFY" stroke="#3b82f6" strokeWidth={1.5} dot={false} connectNulls/>
+                    {/* current value labels on right */}
+                    {curEst && <ReferenceLine y={curEst.eps_consensus} stroke="#f0c04044" strokeDasharray="3 4"/>}
+                    {nxtEst && <ReferenceLine y={nxtEst.eps_consensus} stroke="#3b82f644" strokeDasharray="3 4"/>}
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            <div style={{display:'flex',gap:5,marginBottom:10}}>
-              {[{id:'eps',label:'EPS'},{id:'revenue',label:'Revenue'},{id:'analysts',label:'Coverage'}].map(t => (
-                <button key={t.id} className={`tab${estMetric === t.id ? ' a' : ''}`}
-                  onClick={() => setEstMetric(t.id as 'eps'|'revenue'|'analysts')}>{t.label}</button>
+
+            {/* ── Bottom: analyst breakdown table ── */}
+            <div style={{background:'#0d1117',border:'1px solid #1e2a3a',borderTop:'none',maxHeight:260,overflowY:'auto'}}>
+              {/* header */}
+              <div style={{display:'grid',gridTemplateColumns:'28px 1fr 140px 76px 80px 56px 80px 56px',
+                borderBottom:'1px solid #1e2a3a',padding:'7px 12px',gap:4,background:'#0a0e17',position:'sticky',top:0,zIndex:1}}>
+                {['#','FIRM','ANALYST','DATE',curEst?.period,'CHG',nxtEst?.period,'CHG'].map((h,i)=>(
+                  <div key={i} style={{fontSize:9,color:'#4a5568',letterSpacing:'.1em',fontFamily:mono,
+                    textAlign: i >= 4 ? 'right' : 'left'}}>{h}</div>
+                ))}
+              </div>
+              {/* mean consensus row */}
+              <div style={{display:'grid',gridTemplateColumns:'28px 1fr 140px 76px 80px 56px 80px 56px',
+                padding:'7px 12px',gap:4,borderBottom:'1px solid #1e2a3a',background:'#0d1117'}}>
+                <div style={{fontSize:10,color:'#4a5568',fontFamily:mono}}/>
+                <div style={{fontSize:11,color:'#e2e8f0',fontFamily:mono,fontWeight:600}}>Mean Consensus</div>
+                <div/>
+                <div style={{fontSize:10,color:'#6b7280',fontFamily:mono}}>03/12/26</div>
+                <div style={{textAlign:'right',fontSize:11,color:'#e2e8f0',fontFamily:mono,fontWeight:600}}>${fmt(curEst?.eps_consensus)}</div>
+                <div/>
+                <div style={{textAlign:'right',fontSize:11,color:'#e2e8f0',fontFamily:mono,fontWeight:600}}>${fmt(nxtEst?.eps_consensus)}</div>
+                <div/>
+              </div>
+              {/* individual analysts */}
+              {analysts.map((a,i)=>(
+                <div key={i} style={{display:'grid',gridTemplateColumns:'28px 1fr 140px 76px 80px 56px 80px 56px',
+                  padding:'6px 12px',gap:4,borderBottom:'1px solid #1e2a3a18',
+                  background: i%2===0?'transparent':'#0a0e1733'}}>
+                  <div style={{fontSize:10,color:'#4a5568',fontFamily:mono}}>{i+1}</div>
+                  <div style={{fontSize:11,color:'#f0c040',fontFamily:mono,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.firm}</div>
+                  <div style={{fontSize:10,color:'#9ca3af',fontFamily:mono,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.analyst}</div>
+                  <div style={{fontSize:10,color:'#f0c040',fontFamily:mono}}>{a.date}</div>
+                  <div style={{textAlign:'right',fontSize:11,color:'#e2e8f0',fontFamily:mono}}>${a.curFY.toFixed(2)}</div>
+                  <div style={{textAlign:'right',fontSize:10,color:chgColor(a.curChange),fontFamily:mono}}>{a.curChange===0?'—':chgFmt(a.curChange)}</div>
+                  <div style={{textAlign:'right',fontSize:11,color:'#e2e8f0',fontFamily:mono}}>${a.nxtFY.toFixed(2)}</div>
+                  <div style={{textAlign:'right',fontSize:10,color:chgColor(a.nxtChange),fontFamily:mono}}>{a.nxtChange===0?'—':chgFmt(a.nxtChange)}</div>
+                </div>
               ))}
             </div>
-            <div style={{background:'#0d1117',border:'1px solid #1e2a3a',padding:'16px 6px 8px'}}>
-              <div style={{fontSize:9,color:'#4a5568',letterSpacing:'.1em',marginBottom:8,paddingLeft:10}}>
-                {estMetric === 'eps' && 'EPS CONSENSUS WITH HIGH / LOW ANALYST RANGE'}
-                {estMetric === 'revenue' && 'REVENUE CONSENSUS ($B) WITH HIGH / LOW RANGE'}
-                {estMetric === 'analysts' && '# ANALYSTS COVERING OVER TIME'}
-              </div>
-              {estMetric !== 'analysts' ? (
-                <ResponsiveContainer width="100%" height={240}>
-                  <AreaChart data={estChart} margin={{top:4,right:18,left:6,bottom:4}}>
-                    <defs><linearGradient id="eg" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#f0c040" stopOpacity={0.1}/><stop offset="100%" stopColor="#f0c040" stopOpacity={0.01}/>
-                    </linearGradient></defs>
-                    <CartesianGrid stroke="#1e2a3a" strokeDasharray="4 4" vertical={false}/>
-                    <XAxis dataKey="period" tick={{fill:'#8b949e',fontSize:9}} axisLine={false} tickLine={false}/>
-                    <YAxis tick={{fill:'#8b949e',fontSize:9}} axisLine={false} tickLine={false}
-                      tickFormatter={v => estMetric === 'revenue' ? `$${v.toFixed(0)}B` : `$${v.toFixed(2)}`}
-                      width={estMetric === 'revenue' ? 50 : 40}/>
-                    <Tooltip content={<BloomTip fv={v => estMetric === 'revenue' ? fmtB(v) : `$${fmt(v)}`}/>}/>
-                    <Area type="monotone" dataKey={estMetric === 'eps' ? 'High EPS' : 'High Rev'} stroke="#4ade80" strokeWidth={1} strokeDasharray="3 3" fill="url(#eg)" dot={false} name="High"/>
-                    <Area type="monotone" dataKey={estMetric === 'eps' ? 'Low EPS' : 'Low Rev'} stroke="#f87171" strokeWidth={1} strokeDasharray="3 3" fill="#0d1117" dot={false} name="Low"/>
-                    <Line type="monotone" dataKey={estMetric === 'eps' ? 'Consensus EPS' : 'Consensus Rev'} stroke="#f0c040" strokeWidth={2.5} dot={{fill:'#f0c040',r:3,strokeWidth:0}} activeDot={{r:5}} name="Consensus"/>
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={estChart} margin={{top:4,right:18,left:6,bottom:4}}>
-                    <CartesianGrid stroke="#1e2a3a" strokeDasharray="4 4" vertical={false}/>
-                    <XAxis dataKey="period" tick={{fill:'#8b949e',fontSize:9}} axisLine={false} tickLine={false}/>
-                    <YAxis tick={{fill:'#8b949e',fontSize:9}} axisLine={false} tickLine={false} width={26}/>
-                    <Tooltip content={<BloomTip fv={v => String(v)}/>}/>
-                    <Bar dataKey="Analysts" fill="#a78bfa" radius={[2,2,0,0]} name="Analysts"/>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* ══ SECTION 3 — VALUATION */}
         {valChart.length > 0 && (

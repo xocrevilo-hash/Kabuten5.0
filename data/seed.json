@@ -202,7 +202,7 @@
   { "name": "Silergy Corp", "ticker": "6415.TW", "exchange": "TWSE", "country": "TW", "sector": "Power Management IC", "agent_key": null, "classification": "mid_cap", "bbg_ticker": "6415 TT Equity" },
   { "name": "Win Semiconductors", "ticker": "3105.TW", "exchange": "TWSE", "country": "TW", "sector": "Compound Semi Foundry", "agent_key": null, "classification": "mid_cap", "bbg_ticker": "3105 TT Equity" },
   { "name": "Voltronic Power", "ticker": "6409.TW", "exchange": "TWSE", "country": "TW", "sector": "UPS / Power", "agent_key": null, "classification": "mid_cap", "bbg_ticker": "6409 TT Equity" },
-  { "name": "Chroma ATE", "ticker": "2360.TW", "exchange": "TWSE", "country": "TW", "sector": "Test & Measurement", "agent_key": null, "classification": "mid_cap", "bbg_ticker": "2360 TT Equity" },
+  { "name": "Chroma ATE", "ticker": "2360.TW", "exchange": "TWSE", "country": "TW", "sector": "Test & Measurement", "agent_key": "chip", "classification": "mid_cap", "bbg_ticker": "2360 TT Equity" },
   { "name": "Globalwafers", "ticker": "6488.TW", "exchange": "TWSE", "country": "TW", "sector": "Silicon Wafers", "agent_key": null, "classification": "mid_cap", "bbg_ticker": "6488 TT Equity" },
   { "name": "HCL Technologies", "ticker": "HCLTECH.NS", "exchange": "NSE", "country": "IN", "sector": "IT Services", "agent_key": null, "classification": "large_cap", "bbg_ticker": "HCLT IN Equity" },
   { "name": "Persistent Systems", "ticker": "PERSISTENT.NS", "exchange": "NSE", "country": "IN", "sector": "IT Services", "agent_key": null, "classification": "mid_cap", "bbg_ticker": "PSYS IN Equity" },
@@ -246,5 +246,10 @@
   { "name": "Rakuten Group", "ticker": "4755.T", "exchange": "TSE", "country": "JP", "sector": "Japan Internet", "agent_key": "masa", "classification": "large_cap", "bbg_ticker": "4755 JP Equity" },
   { "name": "LY Corp", "ticker": "4689.T", "exchange": "TSE", "country": "JP", "sector": "Japan Internet", "agent_key": "masa", "classification": "large_cap", "bbg_ticker": "4689 JP Equity" },
   { "name": "Mercari", "ticker": "4385.T", "exchange": "TSE", "country": "JP", "sector": "Japan Internet", "agent_key": "masa", "classification": "mid_cap", "bbg_ticker": "4385 JP Equity" },
-  { "name": "Zozo", "ticker": "3092.T", "exchange": "TSE", "country": "JP", "sector": "Japan Internet", "agent_key": "masa", "classification": "mid_cap", "bbg_ticker": "3092 JP Equity" }
+  { "name": "Zozo", "ticker": "3092.T", "exchange": "TSE", "country": "JP", "sector": "Japan Internet", "agent_key": "masa", "classification": "mid_cap", "bbg_ticker": "3092 JP Equity" },
+  { "name": "Pony AI", "ticker": "PONY", "exchange": "NASDAQ", "country": "CN", "sector": "Autonomous Driving", "agent_key": "orient_mid", "classification": "mid_cap", "bbg_ticker": "PONY US Equity" },
+  { "name": "Elite Materials", "ticker": "2383.TW", "exchange": "TWSE", "country": "TW", "sector": "PCB Laminates", "agent_key": "layer", "classification": "mid_cap", "bbg_ticker": "2383 TT Equity" },
+  { "name": "Asia Vital Components", "ticker": "3017.TW", "exchange": "TWSE", "country": "TW", "sector": "Thermal Management", "agent_key": "volt", "classification": "mid_cap", "bbg_ticker": "3017 TT Equity" },
+  { "name": "MPI", "ticker": "6223.TW", "exchange": "TWSE", "country": "TW", "sector": "Test & Measurement", "agent_key": "chip", "classification": "mid_cap", "bbg_ticker": "6223 TT Equity" },
+  { "name": "Phison Electronics", "ticker": "8299.TW", "exchange": "TWSE", "country": "TW", "sector": "NAND Flash Controllers", "agent_key": "chip", "classification": "mid_cap", "bbg_ticker": "8299 TT Equity" }
 ]

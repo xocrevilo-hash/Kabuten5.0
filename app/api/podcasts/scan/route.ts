@@ -36,33 +36,35 @@ async function scanPodcast(podcastName: string, slug: string): Promise<{
   sourceUrl: string;
   hasRelevantContent: boolean;
 }> {
-  const prompt = `You are a financial research assistant scanning podcast transcripts for investment-relevant content.
+  const prompt = `You are a financial research assistant scanning podcasts for investment-relevant content.
 
-Task: Find the latest episode of the podcast "${podcastName}" on podscripts.co, then extract all discussion relating to: semiconductors, AI, bottlenecks, chip supply chains, NVDA, TSMC, ASML, HBM, hyperscaler capex, export controls, or any technology investment themes.
+Task: Find the most recent episode of "${podcastName}" and extract any discussion about: semiconductors, AI infrastructure, chip supply chains, NVDA, TSMC, ASML, HBM, hyperscaler capex, export controls, or technology investment themes.
 
-Steps:
-1. Search the web for: site:podscripts.co "${podcastName}" to find the podcast page and most recent episode.
-2. Fetch the transcript of the most recent episode (URL pattern: podscripts.co/podcasts/${slug}/[episode-slug]).
-3. Extract all relevant semiconductor/AI/bottleneck content from the transcript.
-4. Summarise in EXACTLY 5 bullet points. Each bullet must be a complete investment insight with specific data points, named companies, or concrete claims — no generic statements.
-5. Extract all stock tickers mentioned (e.g. NVDA, 2330.TW, ASML, 8035.T, 000660.KS).
+Search strategy (use at most 5 searches total — stop as soon as you have enough):
+1. Search: "${podcastName}" latest episode 2026
+2. If needed, try podscripts.co/podcasts/${slug} for a transcript
+3. If needed, search X.com or Apple Podcasts for episode summaries
+
+If you find relevant content, summarise in up to 5 bullet points. Each bullet must be a concrete investment insight with specific data points, named companies, or concrete claims — no generic statements.
+
+Extract any stock tickers mentioned (e.g. NVDA, 2330.TW, ASML).
 
 Respond ONLY with valid JSON (no markdown fences, no preamble):
 {
   "episodeTitle": "exact episode title",
-  "episodeDate": "D Mon YYYY e.g. 5 Mar 2026",
-  "bullets": ["bullet1", "bullet2", "bullet3", "bullet4", "bullet5"],
-  "tickers": ["NVDA", "2330.TW"],
-  "sourceUrl": "https://podscripts.co/podcasts/${slug}/[episode-slug]",
+  "episodeDate": "YYYY-MM-DD",
+  "bullets": ["bullet1", "bullet2"],
+  "tickers": ["NVDA"],
+  "sourceUrl": "https://...",
   "hasRelevantContent": true
 }
 
-If the latest episode has no relevant semiconductor/AI/bottleneck content, set hasRelevantContent to false and use empty arrays.`;
+If the latest episode has no relevant content OR you cannot find episode details within your search budget, return hasRelevantContent: false with empty arrays. Do not keep searching if you've used 3+ searches without finding content.`;
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 1024,
-    tools: [{ type: 'web_search_20250305' as const, name: 'web_search' }],
+    tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 5 }] as never,
     messages: [{ role: 'user', content: prompt }],
   });
 
@@ -96,6 +98,16 @@ If the latest episode has no relevant semiconductor/AI/bottleneck content, set h
   return JSON.parse(jsonText);
 }
 
+function normalizeDate(d: string | undefined | null): string | null {
+  if (!d) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;          // YYYY-MM-DD ✓
+  if (/^\d{4}-\d{2}$/.test(d)) return d + '-01';         // YYYY-MM → first of month
+  if (/^\d{4}$/.test(d)) return d + '-01-01';            // YYYY → Jan 1
+  const parsed = new Date(d);
+  if (!isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  return null;
+}
+
 export async function POST(request: Request) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -126,7 +138,7 @@ export async function POST(request: Request) {
         VALUES (
           ${show},
           ${result.episodeTitle},
-          ${result.episodeDate ? new Date(result.episodeDate) : null},
+          ${normalizeDate(result.episodeDate)},
           ${result.bullets},
           ${result.tickers},
           ${result.sourceUrl},

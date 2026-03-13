@@ -1,9 +1,11 @@
 {
   "crons": [
-    { "path": "/api/sweep-all", "schedule": "0 17 * * 1-5" }
+    { "path": "/api/sweep-all",     "schedule": "0 17 * * *" },
+    { "path": "/api/sweep-catchup", "schedule": "0 19 * * *" }
   ],
   "functions": {
     "app/api/sweep-all/route.ts":         { "maxDuration": 300 },
+    "app/api/sweep-catchup/route.ts":     { "maxDuration": 60 },
     "app/api/sector-sweep/route.ts":      { "maxDuration": 300 },
     "app/api/podcasts/scan/route.ts":     { "maxDuration": 300 },
     "app/api/heatmap/scan/route.ts":      { "maxDuration": 300 },

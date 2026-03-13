@@ -31,6 +31,7 @@ export default function NavBar() {
     { label: 'Sectors', href: '/sectors' },
     { label: 'Heatmap', href: '/heatmap' },
     { label: 'Podcasts', href: '/podcasts' },
+    { label: 'Prices', href: '/prices' },
     { label: 'Analytics', href: '/analytics' },
     { label: 'Help', href: '/help' },
   ];

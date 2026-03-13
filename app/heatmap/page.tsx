@@ -55,7 +55,7 @@ export default function HeatmapPage() {
       const data = await res.json();
       const map: Record<string, ScanResult> = {};
       for (const s of data.scans || []) {
-        map[s.keyword] = s;
+        map[s.keyword] = { ...s, heat_score: Number(s.heat_score) };
       }
       setScans(map);
       setLastScan(data.lastScan);

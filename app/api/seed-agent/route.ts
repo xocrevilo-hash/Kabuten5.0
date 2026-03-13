@@ -84,11 +84,13 @@ export async function GET(request: NextRequest) {
     // Already exists — skip silently
   }
 
-  // 4. Insert companies from seed.json that belong to this agent
+  // 4. Insert companies from seed.json that belong to this agent (skip existing tickers)
   const companies = (seedData as SeedCompany[]).filter(c => c.agent_key === agent.agent_key);
   let companiesInserted = 0;
   for (const company of companies) {
     try {
+      const existing = await sql`SELECT id FROM companies WHERE ticker = ${company.ticker}`;
+      if (existing.length > 0) continue; // already in DB — skip
       await sql`
         INSERT INTO companies (name, ticker, bbg_ticker, exchange, country, sector, agent_key, classification)
         VALUES (
@@ -104,7 +106,7 @@ export async function GET(request: NextRequest) {
       `;
       companiesInserted++;
     } catch {
-      // Already exists — skip silently
+      // Error — skip silently
     }
   }
 

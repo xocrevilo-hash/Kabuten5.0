@@ -19,6 +19,15 @@ export const AGENTS: AgentConfig[] = [
     companies: ['WiseTech Global', 'Xero', 'Pro Medicus', 'REA Group', 'Seek'],
   },
   {
+    agent_key: 'chip',
+    agent_name: 'CHIP',
+    sector_name: 'Taiwan Mid-Caps',
+    colour: 'cyan',
+    hasSweep: true,
+    tickers: ['6223.TW', '2360.TW', '8299.TW'],
+    companies: ['MPI', 'Chroma ATE', 'Phison Electronics'],
+  },
+  {
     agent_key: 'crypto',
     agent_name: 'CRYPTO',
     sector_name: 'Cryptocurrency',
@@ -96,8 +105,8 @@ export const AGENTS: AgentConfig[] = [
     sector_name: 'PCB Supply-chain',
     colour: 'gold',
     hasSweep: true,
-    tickers: ['007660.KS', '2368.TW', '3037.TW', '1303.TW', '002916.SZ', '002463.SZ', '300476.SZ', '3189.TW', '600183.SS', '8046.TW'],
-    companies: ['Isu Petasys', 'Gold Circuit Electronics', 'Unimicron Technology', 'Nanya Plastics', 'Shennan Circuits', 'WUS Printed Circuit', 'Victory Giant Technology', 'Kinsus Interconnect', 'Shengyi Technology', 'Nan Ya Printed Circuit'],
+    tickers: ['007660.KS', '2368.TW', '2383.TW', '3037.TW', '1303.TW', '002916.SZ', '002463.SZ', '300476.SZ', '3189.TW', '600183.SS', '8046.TW'],
+    companies: ['Isu Petasys', 'Gold Circuit Electronics', 'Elite Materials', 'Unimicron Technology', 'Nanya Plastics', 'Shennan Circuits', 'WUS Printed Circuit', 'Victory Giant Technology', 'Kinsus Interconnect', 'Shengyi Technology', 'Nan Ya Printed Circuit'],
   },
   {
     agent_key: 'mario',
@@ -159,8 +168,8 @@ export const AGENTS: AgentConfig[] = [
     sector_name: 'China Mid-Caps',
     colour: 'blue',
     hasSweep: true,
-    tickers: ['1024.HK', 'FUTU', 'BILI', 'TCOM', 'TME'],
-    companies: ['Kuaishou', 'Futu Holdings', 'Bilibili', 'Trip.com', 'Tencent Music'],
+    tickers: ['1024.HK', 'FUTU', 'BILI', 'TCOM', 'TME', 'PONY'],
+    companies: ['Kuaishou', 'Futu Holdings', 'Bilibili', 'Trip.com', 'Tencent Music', 'Pony AI'],
   },
   {
     agent_key: 'photon',
@@ -258,8 +267,8 @@ export const AGENTS: AgentConfig[] = [
     sector_name: 'DC Power & Cooling',
     colour: 'gold',
     hasSweep: true,
-    tickers: ['VRT', '2308.TW', '2301.TW', '002851.SZ'],
-    companies: ['Vertiv', 'Delta Electronics', 'Lite-On Technology', 'Shenzhen Megmeet'],
+    tickers: ['VRT', '2308.TW', '2301.TW', '002851.SZ', '3017.TW'],
+    companies: ['Vertiv', 'Delta Electronics', 'Lite-On Technology', 'Shenzhen Megmeet', 'Asia Vital Components'],
   },
 ];
 

@@ -3,9 +3,9 @@ export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 
 const AGENT_CHAIN = [
-  'APEX', 'DRAGON', 'FERRO', 'FORGE', 'FORGE_JP', 'HELIX', 'INDRA', 'LAYER',
+  'APEX', 'DRAGON', 'FERRO', 'FORGE', 'FORGE_JP', 'HELIX', 'INDRA', 'LAYER', 'CHIP',
   'MARIO', 'MASA', 'NOVA', 'OPTIM', 'ORIENT', 'ORIENT_MID', 'PHOTON', 'PILBARA',
-  'PIXEL', 'RACK', 'ROCKET', 'SURGE', 'SYNTH', 'TERRA', 'TIDE', 'VOLT'
+  'PIXEL', 'RACK', 'ROCKET', 'SURGE', 'SYNTH', 'TERRA', 'TIDE', 'VOLT',
 ];
 
 async function handleSweep(request: NextRequest) {
@@ -18,47 +18,30 @@ async function handleSweep(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const currentAgent = searchParams.get('agent') || AGENT_CHAIN[0];
   const currentIndex = AGENT_CHAIN.indexOf(currentAgent);
+  const nextAgent = AGENT_CHAIN[currentIndex + 1] ?? null;
 
-  console.log(`[sweep-all] Running sweep for: ${currentAgent}`);
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://kabuten50.vercel.app';
 
-  // Run this agent's sweep
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://kabuten50.vercel.app';
-    const sweepRes = await fetch(`${baseUrl}/api/sector-sweep?agent=${currentAgent}`, {
-      method: 'POST',
-      headers: {
-        'authorization': `Bearer ${process.env.CRON_SECRET}`,
-        'content-type': 'application/json',
-      },
-    });
-    console.log(`[sweep-all] ${currentAgent} sweep: ${sweepRes.status}`);
-  } catch (err) {
-    console.error(`[sweep-all] ${currentAgent} failed:`, err);
-    // Always continue to next agent even on error
-  }
+  // Fire sector-sweep for this agent, passing the next agent so it can self-chain
+  // when it finishes. Fire-and-forget — sector-sweep handles its own chaining.
+  const nextParam = nextAgent ? `&next=${nextAgent}` : '';
+  fetch(`${baseUrl}/api/sector-sweep?agent=${currentAgent}${nextParam}`, {
+    method: 'POST',
+    headers: {
+      'authorization': `Bearer ${cronSecret}`,
+      'content-type': 'application/json',
+    },
+  }).catch(err => console.error(`[sweep-all] dispatch ${currentAgent}:`, err));
 
-  // Chain to next agent — fire and forget, use GET
-  const nextAgent = AGENT_CHAIN[currentIndex + 1];
-  if (nextAgent) {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://kabuten50.vercel.app';
-    fetch(`${baseUrl}/api/sweep-all?agent=${nextAgent}`, {
-      method: 'GET',
-      headers: {
-        'authorization': `Bearer ${process.env.CRON_SECRET}`,
-      },
-    }).catch(err => console.error(`[sweep-all] Failed to chain to ${nextAgent}:`, err));
-  } else {
-    console.log('[sweep-all] Chain complete — all agents swept.');
-  }
+  console.log(`[sweep-all] Dispatched ${currentAgent} → next: ${nextAgent ?? 'DONE'}`);
 
   return Response.json({
     ok: true,
-    swept: currentAgent,
-    next: nextAgent ?? null,
+    dispatched: currentAgent,
+    next: nextAgent ?? 'DONE',
   });
 }
 
-// Export both GET and POST so chain works regardless of method
 export async function GET(request: NextRequest) {
   return handleSweep(request);
 }

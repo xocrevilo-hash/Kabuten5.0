@@ -3,7 +3,17 @@ import anthropic from '@/lib/claude';
 import sql from '@/lib/db';
 import { getAgent } from '@/lib/agents-config';
 
+function isMobileAuthorized(req: NextRequest): boolean {
+  return req.headers.get('authorization') === 'Bearer fingerthumb';
+}
+
 export async function POST(req: NextRequest) {
+  if (!isMobileAuthorized(req)) {
+    const cookie = req.cookies.get('kabuten-auth');
+    if (cookie?.value !== 'true') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+  }
   const { agentKey, message } = await req.json();
 
   const agent = getAgent(agentKey);

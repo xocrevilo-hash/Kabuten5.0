@@ -1,10 +1,20 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 
+function isMobileAuthorized(req: NextRequest): boolean {
+  return req.headers.get('authorization') === 'Bearer fingerthumb';
+}
+
 export async function GET(
-  req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ key: string }> }
 ) {
+  if (!isMobileAuthorized(req)) {
+    const cookie = req.cookies.get('kabuten-auth');
+    if (cookie?.value !== 'true') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+  }
   const { key } = await params;
   const agentKey = key.toLowerCase();
   

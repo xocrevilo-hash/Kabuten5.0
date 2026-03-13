@@ -1,7 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 
-export async function GET() {
+function isMobileAuthorized(req: NextRequest): boolean {
+  return req.headers.get('authorization') === 'Bearer fingerthumb';
+}
+
+export async function GET(req: NextRequest) {
+  if (!isMobileAuthorized(req)) {
+    const cookie = req.cookies.get('kabuten-auth');
+    if (cookie?.value !== 'true') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+  }
   try {
     const agents = await sql`
       SELECT 

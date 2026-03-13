@@ -17,9 +17,9 @@ const FORGE_BATCHES = [
   ['002371.SZ', '688012.SS', '688200.SS', '688082.SS', '688072.SS'],
 ];
 
-// LAYER batches (10 companies → 2 batches of 5)
+// LAYER batches (11 companies → 6+5)
 const LAYER_BATCHES = [
-  ['007660.KS', '2368.TW', '3037.TW', '1303.TW', '002916.SZ'],
+  ['007660.KS', '2368.TW', '2383.TW', '3037.TW', '1303.TW', '002916.SZ'],
   ['002463.SZ', '300476.SZ', '3189.TW', '600183.SS', '8046.TW'],
 ];
 
@@ -272,6 +272,23 @@ function isAuthorized(request: NextRequest): boolean {
   return false;
 }
 
+async function chainToNext(nextAgent: string | null, cronSecret: string | undefined) {
+  if (!nextAgent) return;
+  // Await the dispatch synchronously before returning — sweep-all returns in < 1s
+  // so this doesn't meaningfully delay the response, but guarantees the request
+  // is fully sent before this function exits (no fire-and-forget GC risk).
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://kabuten50.vercel.app';
+  try {
+    await fetch(`${baseUrl}/api/sweep-all?agent=${nextAgent}`, {
+      method: 'GET',
+      headers: { 'authorization': `Bearer ${cronSecret ?? ''}` },
+    });
+    console.log(`[sector-sweep] Chained → ${nextAgent}`);
+  } catch (err) {
+    console.error(`[sector-sweep] chain → ${nextAgent}:`, err);
+  }
+}
+
 export async function POST(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -279,6 +296,7 @@ export async function POST(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const agentParam = searchParams.get('agent')?.toUpperCase();
+  const nextAgent = searchParams.get('next') ?? null;
 
   if (!agentParam) {
     return NextResponse.json({ error: 'Missing agent parameter' }, { status: 400 });
@@ -418,6 +436,9 @@ export async function POST(req: NextRequest) {
       WHERE agent_key = ${agentKey}
     `;
 
+    // Chain to the next agent now that this sweep is complete
+    await chainToNext(nextAgent, process.env.CRON_SECRET);
+
     return NextResponse.json({
       success: true,
       agent: agentParam,
@@ -433,6 +454,8 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('Sweep error:', error);
+    // Still chain to next agent so one failure doesn't kill the whole run
+    await chainToNext(nextAgent, process.env.CRON_SECRET);
     return NextResponse.json({
       error: 'Sweep failed',
       details: error instanceof Error ? error.message : String(error),
