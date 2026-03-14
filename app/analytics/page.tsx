@@ -198,7 +198,7 @@ function EstimatesPanel({ bbg }: { bbg: BloombergData }) {
   const items = [
     { label: 'EPS FY1E',    value: bbg.consensus_eps_fy1,  prefix: '' },
     { label: 'EPS FY2E',    value: bbg.consensus_eps_fy2,  prefix: '' },
-    { label: 'Rev FY1E',    value: bbg.consensus_rev_fy1,  prefix: '$', suffix: 'B', divisor: 1e9 },
+    { label: 'Rev FY1E',    value: bbg.consensus_rev_fy1,  prefix: '$', suffix: 'B', divisor: 1e3 },
   ];
   return (
     <Panel title="CONSENSUS ESTIMATES" badge="Bloomberg">
@@ -274,7 +274,8 @@ function ValuationPanel({ bbg }: { bbg: BloombergData }) {
     { label: 'EV/EBITDA', value: toNum(bbg.ev_ebitda), color: G.blue },
   ].filter(r => r.value != null);
   if (rows.length === 0) return null;
-  const maxVal = Math.max(...rows.map(r => r.value!)) * 1.2;
+  const rawMax = Math.max(...rows.map(r => r.value!)) * 1.25;
+  const maxVal = Math.ceil(rawMax / 5) * 5; // round up to nearest 5
   return (
     <Panel title="VALUATION MULTIPLES" badge="Bloomberg">
       <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -342,29 +343,46 @@ function PriceRangePanel({ bbg, livePrice }: { bbg: BloombergData; livePrice: nu
 
 // ─── main page ────────────────────────────────────────────────────────────────
 export default function AnalyticsPage() {
-  const [ticker, setTicker]         = useState('NVDA');
-  const [inputVal, setInputVal]     = useState('NVDA');
-  const [bbg, setBbg]               = useState<BloombergData | null>(null);
-  const [company, setCompany]       = useState<CompanyInfo | null>(null);
-  const [livePrice, setLivePrice]   = useState<number | null>(null);
-  const [loading, setLoading]       = useState(false);
-  const [notFound, setNotFound]     = useState(false);
+  const [ticker, setTicker]           = useState('NVDA');
+  const [inputVal, setInputVal]       = useState('NVDA');
+  const [bbg, setBbg]                 = useState<BloombergData | null>(null);
+  const [allCompanies, setAllCompanies] = useState<CompanyInfo[]>([]);
+  const [company, setCompany]         = useState<CompanyInfo | null>(null);
+  const [livePrice, setLivePrice]     = useState<number | null>(null);
+  const [loading, setLoading]         = useState(false);
+  const [notFound, setNotFound]       = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  // Load all companies once
+  useEffect(() => {
+    fetch('/api/companies', { headers: { authorization: 'Bearer fingerthumb' } })
+      .then(r => r.json())
+      .then((data: CompanyInfo[]) => setAllCompanies(data))
+      .catch(() => {});
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowDropdown(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const numFields = ['px_last','fwd_pe','ev_ebitda','consensus_eps_fy1','consensus_eps_fy2',
+    'consensus_rev_fy1','target_price_mean','target_price_high','target_price_low',
+    'buy_count','hold_count','sell_count','short_interest_ratio',
+    'high_52w','low_52w','ytd_return','dividend_yield','market_cap'];
 
   useEffect(() => {
     if (!ticker) return;
     setLoading(true); setBbg(null); setCompany(null); setLivePrice(null); setNotFound(false);
-
-    // Fetch Bloomberg data + company info in parallel
     Promise.all([
       fetch(`/api/bloomberg?ticker=${ticker}`).then(r => r.json()),
-      fetch(`/api/companies`, { headers: { authorization: 'Bearer fingerthumb' } }).then(r => r.json()),
       fetch(`/api/price?tickers=${ticker}`).then(r => r.json()).catch(() => ({})),
-    ]).then(([bbgData, companies, priceData]) => {
-      // Coerce all numeric Bloomberg fields from string → number at the boundary
-      const numFields = ['px_last','fwd_pe','ev_ebitda','consensus_eps_fy1','consensus_eps_fy2',
-        'consensus_rev_fy1','target_price_mean','target_price_high','target_price_low',
-        'buy_count','hold_count','sell_count','short_interest_ratio',
-        'high_52w','low_52w','ytd_return','dividend_yield','market_cap'];
+    ]).then(([bbgData, priceData]) => {
       if (bbgData) {
         for (const f of numFields) {
           if (bbgData[f] != null) bbgData[f] = toNum(bbgData[f]);
@@ -372,19 +390,32 @@ export default function AnalyticsPage() {
       }
       setBbg(bbgData ?? null);
       setNotFound(!bbgData);
-      const co = (companies as CompanyInfo[]).find((c: CompanyInfo) => c.ticker === ticker);
+      const co = allCompanies.find(c => c.ticker === ticker);
       setCompany(co ?? null);
       const q = priceData?.[ticker];
       if (q?.regularMarketPrice) setLivePrice(q.regularMarketPrice);
     }).finally(() => setLoading(false));
-  }, [ticker]);
+  }, [ticker]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const lookup = () => {
-    const t = inputVal.trim().toUpperCase();
-    if (t) setTicker(t);
+  // Also update company when allCompanies loads
+  useEffect(() => {
+    if (allCompanies.length > 0 && ticker) {
+      setCompany(allCompanies.find(c => c.ticker === ticker) ?? null);
+    }
+  }, [allCompanies, ticker]);
+
+  const selectTicker = (t: string) => {
+    setTicker(t); setInputVal(t); setShowDropdown(false);
   };
 
-  const agentKey  = company?.agent_key ?? 'APEX';
+  const filtered = inputVal.length >= 1
+    ? allCompanies.filter(c =>
+        c.ticker.startsWith(inputVal.toUpperCase()) ||
+        c.name.toLowerCase().includes(inputVal.toLowerCase())
+      ).slice(0, 8)
+    : [];
+
+  const agentKey  = company?.agent_key  ?? 'APEX';
   const agentName = company?.agent_name ?? 'Asia Pacific';
 
   return (
@@ -392,14 +423,49 @@ export default function AnalyticsPage() {
       {/* top bar */}
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: G.bg, borderBottom: `1px solid ${G.b}`, padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 13, color: G.green, letterSpacing: 3, fontWeight: 700 }}>ANALYTICS</span>
-        <div style={{ display: 'flex' }}>
-          <input value={inputVal} onChange={e => setInputVal(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && lookup()} placeholder="TICKER"
-            style={{ fontFamily: G.mono, fontSize: 13, color: G.green, background: G.surf, border: `1px solid ${G.bBright}`, borderRight: 'none', borderRadius: '3px 0 0 3px', padding: '6px 10px', width: 120, outline: 'none', letterSpacing: 2 }} />
-          <button onClick={lookup} style={{ fontFamily: G.mono, fontSize: 11, color: G.bg, background: G.green, border: 'none', borderRadius: '0 3px 3px 0', padding: '0 14px', cursor: 'pointer', letterSpacing: 1 }}>LOAD</button>
+
+        {/* search with autocomplete */}
+        <div ref={searchRef} style={{ position: 'relative' }}>
+          <div style={{ display: 'flex' }}>
+            <input
+              value={inputVal}
+              onChange={e => { setInputVal(e.target.value.toUpperCase()); setShowDropdown(true); }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { selectTicker(inputVal.trim().toUpperCase()); }
+                if (e.key === 'Escape') setShowDropdown(false);
+              }}
+              onFocus={() => setShowDropdown(true)}
+              placeholder="SEARCH TICKER OR NAME"
+              style={{ fontFamily: G.mono, fontSize: 12, color: G.green, background: G.surf, border: `1px solid ${G.bBright}`, borderRight: 'none', borderRadius: '3px 0 0 3px', padding: '6px 10px', width: 220, outline: 'none', letterSpacing: 1 }}
+            />
+            <button onClick={() => selectTicker(inputVal.trim().toUpperCase())}
+              style={{ fontFamily: G.mono, fontSize: 11, color: G.bg, background: G.green, border: 'none', borderRadius: '0 3px 3px 0', padding: '0 14px', cursor: 'pointer', letterSpacing: 1 }}>
+              LOAD
+            </button>
+          </div>
+          {/* dropdown */}
+          {showDropdown && filtered.length > 0 && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: G.surf, border: `1px solid ${G.bBright}`, borderTop: 'none', borderRadius: '0 0 4px 4px', zIndex: 100, maxHeight: 280, overflowY: 'auto' }}>
+              {filtered.map(c => (
+                <div key={c.ticker} onMouseDown={() => selectTicker(c.ticker)}
+                  style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: `1px solid ${G.b}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = G.greenFaint)}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                  <div>
+                    <span style={{ fontFamily: G.mono, fontSize: 12, color: G.green, fontWeight: 700 }}>{c.ticker}</span>
+                    <span style={{ fontFamily: G.mono, fontSize: 11, color: G.muted, marginLeft: 10 }}>{c.name}</span>
+                  </div>
+                  <span style={{ fontFamily: G.mono, fontSize: 10, color: G.dim }}>{c.agent_key}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+
+        {/* quick chips */}
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {QUICK.map(t => (
-            <button key={t} onClick={() => { setTicker(t); setInputVal(t); }}
+            <button key={t} onClick={() => selectTicker(t)}
               style={{ fontFamily: G.mono, fontSize: 11, letterSpacing: 1, color: t === ticker ? G.bg : G.greenDim, background: t === ticker ? G.green : G.greenFaint, border: `1px solid ${t === ticker ? G.green : G.greenMuted}`, borderRadius: 3, padding: '3px 10px', cursor: 'pointer' }}>
               {t}
             </button>
