@@ -16,23 +16,9 @@ interface SeedCompany {
 
 export async function GET() {
   try {
-    // ── 1. Drop tables in dependency order ──────────────────────
-    await sql`DROP TABLE IF EXISTS earnings_transcripts CASCADE`;
-    await sql`DROP TABLE IF EXISTS valuation_history CASCADE`;
-    await sql`DROP TABLE IF EXISTS bloomberg_data CASCADE`;
-    await sql`DROP TABLE IF EXISTS podcast_summaries CASCADE`;
-    await sql`DROP TABLE IF EXISTS heatmap_scans CASCADE`;
-    await sql`DROP TABLE IF EXISTS cross_company_signals CASCADE`;
-    await sql`DROP TABLE IF EXISTS action_log CASCADE`;
-    await sql`DROP TABLE IF EXISTS agent_threads CASCADE`;
-    await sql`DROP TABLE IF EXISTS brief_proposals CASCADE`;
-    await sql`DROP TABLE IF EXISTS agent_briefs CASCADE`;
-    await sql`DROP TABLE IF EXISTS companies CASCADE`;
-    await sql`DROP TABLE IF EXISTS sector_agents CASCADE`;
-
-    // ── 2. Create tables ─────────────────────────────────────────
+    // ── 1. Create tables (safe — never drops existing data) ───────
     await sql`
-      CREATE TABLE sector_agents (
+      CREATE TABLE IF NOT EXISTS sector_agents (
         id SERIAL PRIMARY KEY,
         agent_key TEXT UNIQUE NOT NULL,
         agent_name TEXT NOT NULL,
@@ -44,10 +30,10 @@ export async function GET() {
     `;
 
     await sql`
-      CREATE TABLE companies (
+      CREATE TABLE IF NOT EXISTS companies (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
-        ticker TEXT NOT NULL,
+        ticker TEXT UNIQUE NOT NULL,
         bbg_ticker TEXT,
         exchange TEXT NOT NULL,
         country TEXT NOT NULL,
@@ -60,9 +46,9 @@ export async function GET() {
     `;
 
     await sql`
-      CREATE TABLE agent_briefs (
+      CREATE TABLE IF NOT EXISTS agent_briefs (
         id SERIAL PRIMARY KEY,
-        agent_key TEXT REFERENCES sector_agents(agent_key),
+        agent_key TEXT UNIQUE REFERENCES sector_agents(agent_key),
         thesis TEXT,
         drivers JSONB,
         risks JSONB,
@@ -72,7 +58,7 @@ export async function GET() {
     `;
 
     await sql`
-      CREATE TABLE brief_proposals (
+      CREATE TABLE IF NOT EXISTS brief_proposals (
         id SERIAL PRIMARY KEY,
         agent_key TEXT REFERENCES sector_agents(agent_key),
         proposed_thesis TEXT,
@@ -87,16 +73,16 @@ export async function GET() {
     `;
 
     await sql`
-      CREATE TABLE agent_threads (
+      CREATE TABLE IF NOT EXISTS agent_threads (
         id SERIAL PRIMARY KEY,
-        agent_key TEXT REFERENCES sector_agents(agent_key),
+        agent_key TEXT UNIQUE REFERENCES sector_agents(agent_key),
         thread_history JSONB DEFAULT '[]',
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `;
 
     await sql`
-      CREATE TABLE action_log (
+      CREATE TABLE IF NOT EXISTS action_log (
         id SERIAL PRIMARY KEY,
         agent_key TEXT,
         company_ticker TEXT,
@@ -110,7 +96,7 @@ export async function GET() {
     `;
 
     await sql`
-      CREATE TABLE cross_company_signals (
+      CREATE TABLE IF NOT EXISTS cross_company_signals (
         id SERIAL PRIMARY KEY,
         agent_key TEXT,
         signal TEXT,
@@ -120,7 +106,7 @@ export async function GET() {
     `;
 
     await sql`
-      CREATE TABLE heatmap_scans (
+      CREATE TABLE IF NOT EXISTS heatmap_scans (
         id SERIAL PRIMARY KEY,
         keyword TEXT NOT NULL,
         view_count INTEGER,
@@ -130,7 +116,7 @@ export async function GET() {
     `;
 
     await sql`
-      CREATE TABLE podcast_summaries (
+      CREATE TABLE IF NOT EXISTS podcast_summaries (
         id SERIAL PRIMARY KEY,
         podcast_name TEXT NOT NULL,
         episode_title TEXT NOT NULL,
@@ -148,7 +134,7 @@ export async function GET() {
     await sql`CREATE INDEX IF NOT EXISTS idx_podcast_summaries_name ON podcast_summaries(podcast_name)`;
 
     await sql`
-      CREATE TABLE bloomberg_data (
+      CREATE TABLE IF NOT EXISTS bloomberg_data (
         id SERIAL PRIMARY KEY,
         ticker TEXT NOT NULL,
         bbg_ticker TEXT NOT NULL,
@@ -187,14 +173,20 @@ export async function GET() {
         est_up_1m    INTEGER,
         est_down_1m  INTEGER,
         best_eps_ntm NUMERIC,
+        -- v3 columns
+        px_to_book    NUMERIC,
+        median_eps_fy1 NUMERIC,
+        num_estimates  INTEGER,
+        eps_std_dev    NUMERIC,
+        -- v4 columns
+        avg_volume NUMERIC,
         updated_at TIMESTAMPTZ DEFAULT NOW()
       )
     `;
-
-    await sql`CREATE UNIQUE INDEX idx_bloomberg_ticker ON bloomberg_data(ticker)`;
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_bloomberg_ticker ON bloomberg_data(ticker)`;
 
     await sql`
-      CREATE TABLE valuation_history (
+      CREATE TABLE IF NOT EXISTS valuation_history (
         id            SERIAL PRIMARY KEY,
         ticker        TEXT NOT NULL,
         snapshot_date DATE NOT NULL,
@@ -202,6 +194,7 @@ export async function GET() {
         ev_ebitda     NUMERIC,
         px_last       NUMERIC,
         market_cap    NUMERIC,
+        px_to_book    NUMERIC,
         UNIQUE(ticker, snapshot_date)
       )
     `;
@@ -209,7 +202,7 @@ export async function GET() {
     await sql`CREATE INDEX IF NOT EXISTS idx_val_hist_date   ON valuation_history(snapshot_date DESC)`;
 
     await sql`
-      CREATE TABLE earnings_transcripts (
+      CREATE TABLE IF NOT EXISTS earnings_transcripts (
         id              SERIAL PRIMARY KEY,
         ticker          TEXT NOT NULL,
         agent_key       TEXT REFERENCES sector_agents(agent_key),
@@ -232,15 +225,16 @@ export async function GET() {
     await sql`CREATE INDEX IF NOT EXISTS idx_transcripts_agent ON earnings_transcripts(agent_key)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_transcripts_date ON earnings_transcripts(report_date DESC NULLS LAST)`;
 
-    // ── 3. Seed sector agents ────────────────────────────────────
+    // ── 2. Seed sector agents (skip existing) ────────────────────
     for (const agent of AGENTS) {
       await sql`
         INSERT INTO sector_agents (agent_key, agent_name, sector_name, colour)
         VALUES (${agent.agent_key}, ${agent.agent_name}, ${agent.sector_name}, ${agent.colour})
+        ON CONFLICT (agent_key) DO NOTHING
       `;
     }
 
-    // ── 4. Seed companies ────────────────────────────────────────
+    // ── 3. Seed companies (skip existing, update bbg_ticker) ─────
     const companies = seedData as SeedCompany[];
     for (const company of companies) {
       await sql`
@@ -255,22 +249,32 @@ export async function GET() {
           ${company.agent_key},
           ${company.classification}
         )
+        ON CONFLICT (ticker) DO UPDATE SET
+          bbg_ticker = EXCLUDED.bbg_ticker,
+          name = EXCLUDED.name,
+          exchange = EXCLUDED.exchange,
+          country = EXCLUDED.country,
+          sector = EXCLUDED.sector,
+          agent_key = EXCLUDED.agent_key,
+          classification = EXCLUDED.classification
       `;
     }
 
-    // ── 5. Create initial empty agent_briefs & agent_threads ─────
+    // ── 4. Init agent_briefs & agent_threads (skip existing) ─────
     for (const agent of AGENTS) {
       await sql`
         INSERT INTO agent_briefs (agent_key, thesis, drivers, risks, ratings)
         VALUES (${agent.agent_key}, NULL, '[]'::jsonb, '[]'::jsonb, '{}'::jsonb)
+        ON CONFLICT (agent_key) DO NOTHING
       `;
       await sql`
         INSERT INTO agent_threads (agent_key, thread_history)
         VALUES (${agent.agent_key}, '[]'::jsonb)
+        ON CONFLICT (agent_key) DO NOTHING
       `;
     }
 
-    // ── 6. Return summary ────────────────────────────────────────
+    // ── 5. Return summary ────────────────────────────────────────
     const agentCount = await sql`SELECT COUNT(*) AS count FROM sector_agents`;
     const companyCount = await sql`SELECT COUNT(*) AS count FROM companies`;
     const briefCount = await sql`SELECT COUNT(*) AS count FROM agent_briefs`;
