@@ -288,7 +288,7 @@ function ValuationPanel({ bbg }: { bbg: BloombergData }) {
             <CartesianGrid strokeDasharray="2 4" stroke={G.b} horizontal={false} />
             <XAxis type="number" domain={[0, maxVal]} tick={{ fontFamily: G.mono, fontSize: 10, fill: G.muted }} axisLine={false} tickLine={false} />
             <YAxis type="category" dataKey="name" tick={{ fontFamily: G.mono, fontSize: 10, fill: G.muted }} axisLine={false} tickLine={false} width={72} />
-            <Tooltip contentStyle={{ background: G.surf, border: `1px solid ${G.b}`, fontFamily: G.mono, fontSize: 11 }} labelStyle={{ color: G.green }} itemStyle={{ color: G.text }} formatter={(v: number) => [`${v.toFixed(1)}x`, '']} />
+            <Tooltip contentStyle={{ background: G.surf, border: `1px solid ${G.b}`, fontFamily: G.mono, fontSize: 11 }} labelStyle={{ color: G.green }} itemStyle={{ color: G.text }} formatter={(v: unknown) => [`${(v as number).toFixed(1)}x`, '']} />
             <Bar dataKey="value" fill={G.green} radius={[0, 3, 3, 0]} />
           </BarChart>
         </ResponsiveContainer>
