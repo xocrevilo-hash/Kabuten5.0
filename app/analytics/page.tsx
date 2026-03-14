@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Legend } from 'recharts';
 
 // ─── palette ────────────────────────────────────────────────────────────────
 const G = {
@@ -289,41 +289,119 @@ function EPSRevisionsPanel({ bbg }: { bbg: BloombergData }) {
 
 // ─── Analyst Ratings ─────────────────────────────────────────────────────────
 function AnalystRatings({ bbg }: { bbg: BloombergData }) {
-  const buy  = toNum(bbg.buy_count)  ?? 0;
-  const hold = toNum(bbg.hold_count) ?? 0;
-  const sell = toNum(bbg.sell_count) ?? 0;
+  const buy   = toNum(bbg.buy_count)  ?? 0;
+  const hold  = toNum(bbg.hold_count) ?? 0;
+  const sell  = toNum(bbg.sell_count) ?? 0;
   const total = buy + hold + sell;
   if (total === 0) return null;
-  const pct = (n: number) => `${Math.round(n / total * 100)}%`;
-  const barW = (n: number) => `${Math.round(n / total * 100)}%`;
+
+  // Consensus rating score: Buy=5, Hold=3, Sell=1 (Bloomberg convention)
+  const ratingScore = ((buy * 5) + (hold * 3) + (sell * 1)) / total;
+  const ratingLabel = ratingScore >= 4.5 ? 'STRONG BUY' : ratingScore >= 3.5 ? 'BUY' : ratingScore >= 2.5 ? 'HOLD' : 'SELL';
+  const ratingColor = ratingScore >= 3.5 ? G.green : ratingScore >= 2.5 ? G.amber : G.red;
+
+  const pctN   = (n: number) => `${(n / total * 100).toFixed(1)}%`;
+  const barPct = (n: number) => `${Math.round(n / total * 100)}%`;
+
+  const px     = toNum(bbg.px_last);
+  const tgtMn  = toNum(bbg.target_price_mean);
+  const tgtHi  = toNum(bbg.target_price_high);
+  const tgtLo  = toNum(bbg.target_price_low);
+  const retPot = px && tgtMn ? ((tgtMn - px) / px * 100) : null;
+
   return (
-    <Panel title="ANALYST RATINGS" badge="Bloomberg">
-      <div style={{ display: 'flex', gap: 20, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
-        {([['BUY', G.green, buy], ['HOLD', G.amber, hold], ['SELL', G.red, sell]] as [string, string, number][]).map(([label, col, n]) => (
-          <div key={label} style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: G.mono, fontSize: 32, color: col, fontWeight: 700 }}>{n}</div>
-            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, letterSpacing: 1 }}>{label}</div>
-          </div>
-        ))}
-        {bbg.target_price_mean != null && (
-          <div style={{ flex: 1, textAlign: 'right' }}>
-            <div style={{ fontFamily: G.mono, fontSize: 11, color: G.muted, marginBottom: 2 }}>CONSENSUS TARGET</div>
-            <div style={{ fontFamily: G.mono, fontSize: 24, color: G.text }}>{fmt(bbg.target_price_mean, 2)}</div>
-            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted }}>
-              Lo {fmt(bbg.target_price_low, 2)} · Hi {fmt(bbg.target_price_high, 2)}
+    <Panel title="ANALYST RECOMMENDATIONS" badge="Bloomberg">
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+
+        {/* Left column: consensus stats */}
+        <div style={{ minWidth: 200, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Rating score */}
+          <div style={{ background: G.bg, border: `1px solid ${G.bBright}`, borderRadius: 4, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div>
+              <div style={{ fontFamily: G.mono, fontSize: 36, color: ratingColor, fontWeight: 700, lineHeight: 1 }}>{ratingScore.toFixed(2)}</div>
+              <div style={{ fontFamily: G.mono, fontSize: 10, color: ratingColor, letterSpacing: 1, marginTop: 4 }}>{ratingLabel}</div>
             </div>
+            <div style={{ fontSize: 20, color: ratingColor }}>▲</div>
           </div>
-        )}
-      </div>
-      <div style={{ display: 'flex', height: 14, borderRadius: 3, overflow: 'hidden', gap: 2 }}>
-        <div style={{ width: barW(buy),  background: G.green, transition: 'width 0.5s' }} />
-        <div style={{ width: barW(hold), background: G.amber, transition: 'width 0.5s' }} />
-        <div style={{ width: barW(sell), background: G.red,   transition: 'width 0.5s' }} />
-      </div>
-      <div style={{ display: 'flex', gap: 12, marginTop: 6 }}>
-        {([['BUY', G.green, buy], ['HOLD', G.amber, hold], ['SELL', G.red, sell]] as [string, string, number][]).map(([label, col, n]) => (
-          <span key={label} style={{ fontFamily: G.mono, fontSize: 10, color: col }}>{pct(n)} {label}</span>
-        ))}
+          {/* Buy / Hold / Sell counts */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+            {([['BUY', G.green, buy], ['HOLD', G.amber, hold], ['SELL', G.red, sell]] as [string, string, number][]).map(([label, col, n]) => (
+              <div key={label} style={{ background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '10px 8px', textAlign: 'center' }}>
+                <div style={{ fontFamily: G.mono, fontSize: 28, color: col, fontWeight: 700, lineHeight: 1 }}>{n}</div>
+                <div style={{ fontFamily: G.mono, fontSize: 9, color: G.muted, marginTop: 3, letterSpacing: 1 }}>{label}</div>
+                <div style={{ fontFamily: G.mono, fontSize: 10, color: col, marginTop: 2 }}>{pctN(n)}</div>
+              </div>
+            ))}
+          </div>
+          {/* Target price stats */}
+          {tgtMn != null && (
+            <div style={{ background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {([
+                ['12M TGT PRICE', fmt(tgtMn, 2)],
+                ['TARGET HI',     fmt(tgtHi, 2)],
+                ['TARGET LO',     fmt(tgtLo, 2)],
+                ['LAST PRICE',    px != null ? px.toFixed(2) : '—'],
+                ['RETURN POTENTIAL', retPot != null ? `${retPot >= 0 ? '+' : ''}${retPot.toFixed(1)}%` : '—'],
+                ['LTM RETURN',    toNum(bbg.ytd_return) != null ? `${toNum(bbg.ytd_return)!.toFixed(1)}%` : '—'],
+              ] as [string, string][]).map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, letterSpacing: 1 }}>{k}</span>
+                  <span style={{ fontFamily: G.mono, fontSize: 13, color: k === 'RETURN POTENTIAL' ? (retPot != null && retPot >= 0 ? G.green : G.red) : G.text }}>{v}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right column: stacked bar chart */}
+        <div style={{ flex: 1, minWidth: 200, display: 'flex', flexDirection: 'column' }}>
+          {/* current snapshot stacked bar */}
+          <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, letterSpacing: 1, marginBottom: 8 }}>CONSENSUS BREAKDOWN</div>
+          <div style={{ display: 'flex', height: 24, borderRadius: 3, overflow: 'hidden', gap: 2, marginBottom: 10 }}>
+            <div style={{ width: barPct(buy),  background: G.green,  transition: 'width 0.6s' }} title={`BUY ${pctN(buy)}`} />
+            <div style={{ width: barPct(hold), background: G.amber, transition: 'width 0.6s' }} title={`HOLD ${pctN(hold)}`} />
+            <div style={{ width: barPct(sell), background: G.red,   transition: 'width 0.6s' }} title={`SELL ${pctN(sell)}`} />
+          </div>
+          <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+            {([['■ BUY', G.green, pctN(buy)], ['■ HOLD', G.amber, pctN(hold)], ['■ SELL', G.red, pctN(sell)]] as [string,string,string][]).map(([label, col, pct]) => (
+              <span key={label} style={{ fontFamily: G.mono, fontSize: 11, color: col }}>{label} {pct}</span>
+            ))}
+          </div>
+          {/* 52W target range bar */}
+          {tgtMn != null && tgtLo != null && tgtHi != null && px != null && (
+            <>
+              <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, letterSpacing: 1, marginBottom: 8 }}>TARGET PRICE RANGE vs LAST PRICE</div>
+              <div style={{ position: 'relative', height: 28, marginBottom: 6 }}>
+                {/* range track */}
+                <div style={{ position: 'absolute', top: '50%', left: '10%', right: '10%', height: 4, background: G.b, borderRadius: 2, transform: 'translateY(-50%)' }} />
+                {/* filled range between lo and hi */}
+                {(() => {
+                  const rangeMin = Math.min(tgtLo, px) * 0.9;
+                  const rangeMax = Math.max(tgtHi, px) * 1.1;
+                  const span = rangeMax - rangeMin;
+                  const toPct = (v: number) => `${((v - rangeMin) / span * 80 + 10).toFixed(1)}%`;
+                  const fillLeft  = parseFloat(toPct(tgtLo));
+                  const fillRight = 100 - parseFloat(toPct(tgtHi));
+                  return (
+                    <>
+                      <div style={{ position: 'absolute', top: '50%', left: `${fillLeft}%`, right: `${fillRight}%`, height: 4, background: G.greenMuted, borderRadius: 2, transform: 'translateY(-50%)' }} />
+                      {/* mean target */}
+                      <div style={{ position: 'absolute', top: '50%', left: toPct(tgtMn), transform: 'translate(-50%, -50%)', width: 10, height: 10, borderRadius: '50%', background: G.green, border: `2px solid ${G.bg}` }} title={`Mean ${tgtMn.toFixed(2)}`} />
+                      {/* last price */}
+                      <div style={{ position: 'absolute', top: '50%', left: toPct(px), transform: 'translate(-50%, -50%)', width: 10, height: 10, borderRadius: '50%', background: G.amber, border: `2px solid ${G.bg}` }} title={`Price ${px.toFixed(2)}`} />
+                    </>
+                  );
+                })()}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: G.mono, fontSize: 10, color: G.muted }}>
+                <span>Lo {fmt(tgtLo, 2)}</span>
+                <span style={{ color: G.green }}>■ Mean {fmt(tgtMn, 2)}</span>
+                <span style={{ color: G.amber }}>■ Price {px.toFixed(2)}</span>
+                <span>Hi {fmt(tgtHi, 2)}</span>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </Panel>
   );
@@ -550,70 +628,170 @@ function RevisionMomentumPanel({ bbg }: { bbg: BloombergData }) {
   const revRev3m = toNum(bbg.rev_rev_3m);
   const estUp    = toNum(bbg.est_up_1m);
   const estDown  = toNum(bbg.est_down_1m);
+  const epsFy1   = toNum(bbg.consensus_eps_fy1);
+  const epsFy2   = toNum(bbg.consensus_eps_fy2);
+  const epsNtm   = toNum(bbg.best_eps_ntm);
 
-  if (epsRev1m == null && epsRev3m == null) return null;
+  if (epsRev1m == null && epsRev3m == null && epsFy1 == null) return null;
 
-  const col = (v: number | null) => v == null ? G.muted : v > 0 ? G.green : v < 0 ? G.red : G.muted;
+  const col  = (v: number | null) => v == null ? G.muted : v > 0 ? G.green : v < 0 ? G.red : G.muted;
   const sign = (v: number | null) => v != null && v > 0 ? '+' : '';
 
-  const MomentumRow = ({ label, v1m, v3m }: { label: string; v1m: number | null; v3m: number | null }) => (
-    <div style={{ display: 'flex', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${G.b}` }}>
-      <div style={{ fontFamily: G.mono, fontSize: 11, color: G.muted, width: 130, letterSpacing: 1, flexShrink: 0 }}>{label}</div>
-      <div style={{ display: 'flex', gap: 24, flex: 1 }}>
-        <div style={{ textAlign: 'center', minWidth: 80 }}>
-          <div style={{ fontFamily: G.mono, fontSize: 10, color: G.dim, marginBottom: 2 }}>1 MONTH</div>
-          <div style={{ fontFamily: G.mono, fontSize: 18, color: col(v1m), fontWeight: 700 }}>
+  // centre-zero momentum bar
+  const MomentumBar = ({ v }: { v: number | null }) => {
+    if (v == null) return <div style={{ flex: 1 }} />;
+    const clamped = Math.min(Math.abs(v), 25); // cap at 25% for display
+    return (
+      <div style={{ flex: 1, position: 'relative', height: 8, background: G.b, borderRadius: 4, alignSelf: 'center' }}>
+        <div style={{
+          position: 'absolute',
+          left:  v >= 0 ? '50%' : `${Math.max(0, 50 - clamped * 2)}%`,
+          width: `${clamped * 2}%`,
+          height: '100%',
+          background: col(v),
+          borderRadius: 4,
+        }} />
+        <div style={{ position: 'absolute', left: '50%', top: -2, width: 1, height: 12, background: G.bBright }} />
+      </div>
+    );
+  };
+
+  return (
+    <Panel title="ESTIMATE CONSENSUS DETAIL" badge="Bloomberg">
+      {/* Consensus summary table */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr 1fr', gap: 0, borderTop: `1px solid ${G.b}` }}>
+          {/* header */}
+          <div style={{ padding: '6px 8px', fontFamily: G.mono, fontSize: 10, color: G.muted, letterSpacing: 1 }} />
+          <div style={{ padding: '6px 8px', fontFamily: G.mono, fontSize: 10, color: G.muted, textAlign: 'right', letterSpacing: 1 }}>FY1 (EPS)</div>
+          <div style={{ padding: '6px 8px', fontFamily: G.mono, fontSize: 10, color: G.muted, textAlign: 'right', letterSpacing: 1 }}>FY2 (EPS)</div>
+
+          {([
+            ['Mean Consensus',    epsFy1,  epsFy2],
+            ['NTM Consensus',     epsNtm,  null],
+          ] as [string, number | null, number | null][]).map(([label, v1, v2]) => (
+            <><div key={label + 'l'} style={{ padding: '7px 8px', borderTop: `1px solid ${G.b}`, fontFamily: G.mono, fontSize: 11, color: G.text }}>{label}</div>
+            <div key={label + 'v1'} style={{ padding: '7px 8px', borderTop: `1px solid ${G.b}`, fontFamily: G.mono, fontSize: 11, color: G.green, textAlign: 'right' }}>{v1 != null ? v1.toFixed(3) : '—'}</div>
+            <div key={label + 'v2'} style={{ padding: '7px 8px', borderTop: `1px solid ${G.b}`, fontFamily: G.mono, fontSize: 11, color: G.greenDim, textAlign: 'right' }}>{v2 != null ? v2.toFixed(3) : '—'}</div></>
+          ))}
+
+          {/* revision rows */}
+          {([
+            ['4W Change %',    epsRev1m, null],
+          ] as [string, number | null, number | null][]).map(([label, v1, v2]) => (
+            <><div key={label + 'l'} style={{ padding: '7px 8px', borderTop: `1px solid ${G.b}`, fontFamily: G.mono, fontSize: 11, color: G.muted }}>{label}</div>
+            <div key={label + 'v1'} style={{ padding: '7px 8px', borderTop: `1px solid ${G.b}`, fontFamily: G.mono, fontSize: 11, color: col(v1), textAlign: 'right' }}>{v1 != null ? `${sign(v1)}${v1.toFixed(2)}%` : '—'}</div>
+            <div key={label + 'v2'} style={{ padding: '7px 8px', borderTop: `1px solid ${G.b}`, fontFamily: G.mono, fontSize: 11, color: G.muted, textAlign: 'right' }}>{v2 != null ? v2.toFixed(2) : '—'}</div></>
+          ))}
+
+          {/* up/down */}
+          <div style={{ padding: '7px 8px', borderTop: `1px solid ${G.b}`, fontFamily: G.mono, fontSize: 11, color: G.muted }}>4W Up/Down</div>
+          <div style={{ padding: '7px 8px', borderTop: `1px solid ${G.b}`, fontFamily: G.mono, fontSize: 11, textAlign: 'right' }}>
+            <span style={{ color: G.green }}>{estUp ?? '—'}</span><span style={{ color: G.muted }}>/</span><span style={{ color: G.red }}>{estDown ?? '—'}</span>
+          </div>
+          <div style={{ padding: '7px 8px', borderTop: `1px solid ${G.b}` }} />
+        </div>
+      </div>
+
+      {/* Momentum bars */}
+      <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, letterSpacing: 1, marginBottom: 8 }}>REVISION MOMENTUM</div>
+      {([
+        ['EPS  · 1M vs 3M', epsRev1m, epsRev3m],
+        ['REV  · 1M vs 3M', revRev1m, revRev3m],
+      ] as [string, number | null, number | null][]).map(([label, v1m, v3m]) => (
+        <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+          <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, width: 120, flexShrink: 0, letterSpacing: 1 }}>{label}</div>
+          <div style={{ fontFamily: G.mono, fontSize: 13, color: col(v1m), width: 58, textAlign: 'right', flexShrink: 0 }}>
             {v1m != null ? `${sign(v1m)}${v1m.toFixed(1)}%` : '—'}
           </div>
-        </div>
-        <div style={{ textAlign: 'center', minWidth: 80 }}>
-          <div style={{ fontFamily: G.mono, fontSize: 10, color: G.dim, marginBottom: 2 }}>3 MONTH</div>
-          <div style={{ fontFamily: G.mono, fontSize: 18, color: col(v3m), fontWeight: 700 }}>
+          <MomentumBar v={v1m} />
+          <div style={{ fontFamily: G.mono, fontSize: 13, color: col(v3m), width: 58, textAlign: 'right', flexShrink: 0 }}>
             {v3m != null ? `${sign(v3m)}${v3m.toFixed(1)}%` : '—'}
           </div>
         </div>
-        {/* momentum bar */}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', paddingLeft: 8 }}>
-          {v1m != null && (
-            <div style={{ position: 'relative', height: 6, background: G.b, borderRadius: 3, width: '100%' }}>
-              <div style={{
-                position: 'absolute',
-                left: v1m >= 0 ? '50%' : `${Math.max(0, 50 + v1m * 2)}%`,
-                width: `${Math.min(50, Math.abs(v1m) * 2)}%`,
-                height: '100%',
-                background: col(v1m),
-                borderRadius: 3,
-              }} />
-              <div style={{ position: 'absolute', left: '50%', top: -2, width: 1, height: 10, background: G.bBright }} />
-            </div>
-          )}
-        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 8, marginTop: 4, fontFamily: G.mono, fontSize: 10, color: G.dim }}>
+        <span style={{ width: 120, flexShrink: 0 }} />
+        <span style={{ width: 58, textAlign: 'right' }}>1M</span>
+        <div style={{ flex: 1 }} />
+        <span style={{ width: 58, textAlign: 'right' }}>3M</span>
       </div>
-    </div>
+    </Panel>
   );
+}
+
+// ─── Valuation History Chart ──────────────────────────────────────────────────
+interface ValHistRow { snapshot_date: string; fwd_pe: number | null; ev_ebitda: number | null; px_last: number | null; }
+
+function ValuationHistoryPanel({ ticker, bbg }: { ticker: string; bbg: BloombergData }) {
+  const [history, setHistory] = useState<ValHistRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setHistory([]); setLoading(true);
+    fetch(`/api/bloomberg/valuation-history?ticker=${ticker}&limit=104`)
+      .then(r => r.json())
+      .then((d: ValHistRow[]) => setHistory(Array.isArray(d) ? d : []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [ticker]);
+
+  const currentPe    = toNum(bbg.fwd_pe);
+  const currentEv    = toNum(bbg.ev_ebitda);
+  const currentPrice = toNum(bbg.px_last);
+
+  // Chart data: map dates to readable labels
+  const chartData = history.map(row => ({
+    date: new Date(row.snapshot_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    'Fwd P/E':    toNum(row.fwd_pe),
+    'EV/EBITDA':  toNum(row.ev_ebitda),
+  })).filter(r => r['Fwd P/E'] != null || r['EV/EBITDA'] != null);
 
   return (
-    <Panel title="EPS REVISION MOMENTUM" badge="Bloomberg Consensus">
-      <MomentumRow label="EPS CONSENSUS" v1m={epsRev1m} v3m={epsRev3m} />
-      <MomentumRow label="REVENUE CONSENSUS" v1m={revRev1m} v3m={revRev3m} />
-
-      {/* Analyst revision counts */}
-      {(estUp != null || estDown != null) && (
-        <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
-          <div style={{ flex: 1, background: G.bg, border: `1px solid ${G.greenMuted}`, borderRadius: 4, padding: '10px 14px', textAlign: 'center' }}>
-            <div style={{ fontFamily: G.mono, fontSize: 28, color: G.green, fontWeight: 700 }}>{estUp ?? 0}</div>
-            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginTop: 2, letterSpacing: 1 }}>UPGRADES · 1M</div>
-          </div>
-          <div style={{ flex: 1, background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '10px 14px', textAlign: 'center' }}>
-            <div style={{ fontFamily: G.mono, fontSize: 28, color: G.red, fontWeight: 700 }}>{estDown ?? 0}</div>
-            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginTop: 2, letterSpacing: 1 }}>DOWNGRADES · 1M</div>
-          </div>
-          {bbg.best_eps_ntm != null && (
-            <div style={{ flex: 1, background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '10px 14px', textAlign: 'center' }}>
-              <div style={{ fontFamily: G.mono, fontSize: 28, color: G.blue, fontWeight: 700 }}>${toNum(bbg.best_eps_ntm)?.toFixed(2)}</div>
-              <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginTop: 2, letterSpacing: 1 }}>NTM EPS EST</div>
+    <Panel title="VALUATION HISTORY" badge="Weekly Snapshots">
+      {/* Current values */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        {([
+          ['Fwd P/E',   currentPe,    G.green],
+          ['EV/EBITDA', currentEv,    G.blue],
+          ['Last Price',currentPrice, G.amber],
+        ] as [string, number | null, string][]).map(([label, val, col]) => (
+          <div key={label} style={{ flex: '1 1 100px', background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '10px 14px' }}>
+            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginBottom: 4, letterSpacing: 1 }}>{label}</div>
+            <div style={{ fontFamily: G.mono, fontSize: 22, color: col, fontWeight: 700 }}>
+              {val != null ? (label === 'Last Price' ? val.toFixed(2) : `${val.toFixed(1)}x`) : '—'}
             </div>
-          )}
+          </div>
+        ))}
+      </div>
+
+      {/* Chart or placeholder */}
+      {loading ? (
+        <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontFamily: G.mono, fontSize: 12, color: G.dim }}>Loading…</span>
+        </div>
+      ) : chartData.length < 2 ? (
+        <div style={{ height: 160, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4 }}>
+          <span style={{ fontFamily: G.mono, fontSize: 13, color: G.muted }}>First snapshot captured today</span>
+          <span style={{ fontFamily: G.mono, fontSize: 11, color: G.dim }}>Chart builds weekly — check back after Monday's Bloomberg sync</span>
+        </div>
+      ) : (
+        <div style={{ height: 180 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="2 4" stroke={G.b} />
+              <XAxis dataKey="date" tick={{ fontFamily: G.mono, fontSize: 9, fill: G.muted }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+              <YAxis tick={{ fontFamily: G.mono, fontSize: 9, fill: G.muted }} axisLine={false} tickLine={false} width={36} />
+              <Tooltip
+                contentStyle={{ background: G.surf, border: `1px solid ${G.b}`, fontFamily: G.mono, fontSize: 11 }}
+                labelStyle={{ color: G.green }}
+                formatter={(v: unknown) => [`${(v as number).toFixed(1)}x`, '']}
+              />
+              <Legend wrapperStyle={{ fontFamily: G.mono, fontSize: 10, color: G.muted }} />
+              <Line type="monotone" dataKey="Fwd P/E"   stroke={G.green} dot={false} strokeWidth={1.5} />
+              <Line type="monotone" dataKey="EV/EBITDA" stroke={G.blue}  dot={false} strokeWidth={1.5} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       )}
     </Panel>
@@ -786,8 +964,8 @@ export default function AnalyticsPage() {
                 <RevisionMomentumPanel bbg={bbg} />
                 <EPSRevisionsPanel bbg={bbg} />
                 <AnalystRatings bbg={bbg} />
+                <ValuationHistoryPanel ticker={ticker} bbg={bbg} />
                 <FinancialsPanel bbg={bbg} />
-                <ValuationPanel bbg={bbg} />
                 <PriceRangePanel bbg={bbg} livePrice={livePrice} />
                 <NewsPanel ticker={ticker} agentKey={agentKey} />
               </div>

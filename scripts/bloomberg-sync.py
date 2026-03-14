@@ -93,6 +93,11 @@ FIELDS_EXPANDED = [
     # Guidance
     "IS_EPS_GUIDANCE_HIGH",      # Company EPS guidance high (US names)
     "IS_EPS_GUIDANCE_LOW",       # Company EPS guidance low (US names)
+    # Valuation history + consensus detail (v3 additions)
+    "PX_TO_BOOK_RATIO",          # Price-to-book ratio (LTM)
+    "BEST_MEDIAN_EPS",           # Median consensus EPS FY1
+    "BEST_NUM_EST",              # Total number of EPS estimates
+    "BEST_EPS_STD_DEV",          # Std deviation of EPS estimates
 ]
 
 FIELDS = FIELDS_CORE + FIELDS_EXPANDED
@@ -140,6 +145,11 @@ DB_COLUMN_MAP = {
     "BEST_EPS_NTM":             "best_eps_ntm",
     "IS_EPS_GUIDANCE_HIGH":     "guidance_eps_hi",
     "IS_EPS_GUIDANCE_LOW":      "guidance_eps_lo",
+    # v3 additions
+    "PX_TO_BOOK_RATIO":         "px_to_book",
+    "BEST_MEDIAN_EPS":          "median_eps_fy1",
+    "BEST_NUM_EST":             "num_estimates",
+    "BEST_EPS_STD_DEV":         "eps_std_dev",
 }
 
 
@@ -279,6 +289,7 @@ def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
                         eps_rev_1m, eps_rev_3m, rev_rev_1m, rev_rev_3m,
                         est_up_1m, est_down_1m, best_eps_ntm,
                         guidance_eps_hi, guidance_eps_lo,
+                        px_to_book, median_eps_fy1, num_estimates, eps_std_dev,
                         updated_at
                     ) VALUES (
                         %(ticker)s, %(bbg_ticker)s,
@@ -293,6 +304,7 @@ def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
                         %(eps_rev_1m)s, %(eps_rev_3m)s, %(rev_rev_1m)s, %(rev_rev_3m)s,
                         %(est_up_1m)s, %(est_down_1m)s, %(best_eps_ntm)s,
                         %(guidance_eps_hi)s, %(guidance_eps_lo)s,
+                        %(px_to_book)s, %(median_eps_fy1)s, %(num_estimates)s, %(eps_std_dev)s,
                         %(updated_at)s
                     )
                     ON CONFLICT (ticker) DO UPDATE SET
@@ -330,6 +342,10 @@ def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
                         best_eps_ntm = EXCLUDED.best_eps_ntm,
                         guidance_eps_hi = EXCLUDED.guidance_eps_hi,
                         guidance_eps_lo = EXCLUDED.guidance_eps_lo,
+                        px_to_book      = EXCLUDED.px_to_book,
+                        median_eps_fy1  = EXCLUDED.median_eps_fy1,
+                        num_estimates   = EXCLUDED.num_estimates,
+                        eps_std_dev     = EXCLUDED.eps_std_dev,
                         updated_at = EXCLUDED.updated_at
                 """, values)
                 success_count += 1
@@ -364,6 +380,7 @@ def upsert_valuation_history(conn, companies: list, bloomberg_results: dict):
             ev_ebitda = row.get("BEST_EV_TO_BEST_EBITDA")
             px_last   = row.get("PX_LAST")
             mkt_cap   = row.get("CUR_MKT_CAP")
+            px_to_book = row.get("PX_TO_BOOK_RATIO")
 
             # Skip if no meaningful valuation data
             if fwd_pe is None and ev_ebitda is None:
@@ -372,14 +389,15 @@ def upsert_valuation_history(conn, companies: list, bloomberg_results: dict):
             try:
                 cur.execute("""
                     INSERT INTO valuation_history
-                        (ticker, snapshot_date, fwd_pe, ev_ebitda, px_last, market_cap)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                        (ticker, snapshot_date, fwd_pe, ev_ebitda, px_last, market_cap, px_to_book)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (ticker, snapshot_date) DO UPDATE SET
-                        fwd_pe    = EXCLUDED.fwd_pe,
-                        ev_ebitda = EXCLUDED.ev_ebitda,
-                        px_last   = EXCLUDED.px_last,
-                        market_cap = EXCLUDED.market_cap
-                """, (ticker, today, fwd_pe, ev_ebitda, px_last, mkt_cap))
+                        fwd_pe     = EXCLUDED.fwd_pe,
+                        ev_ebitda  = EXCLUDED.ev_ebitda,
+                        px_last    = EXCLUDED.px_last,
+                        market_cap = EXCLUDED.market_cap,
+                        px_to_book = EXCLUDED.px_to_book
+                """, (ticker, today, fwd_pe, ev_ebitda, px_last, mkt_cap, px_to_book))
                 inserted += 1
             except Exception as e:
                 log.error(f"Valuation history insert failed for {ticker}: {e}")
@@ -394,7 +412,7 @@ def upsert_valuation_history(conn, companies: list, bloomberg_results: dict):
 def main():
     log.info("=== Kabuten 5.0 Bloomberg Sync ===")
     log.info(f"Started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    log.info(f"Fields: {len(FIELDS_CORE)} core + {len(FIELDS_EXPANDED)} expanded = {len(FIELDS)} total")
+    log.info(f"Fields: {len(FIELDS_CORE)} core + {len(FIELDS_EXPANDED)} expanded = {len(FIELDS)} total (v3)")
 
     try:
         conn = get_db_connection()
