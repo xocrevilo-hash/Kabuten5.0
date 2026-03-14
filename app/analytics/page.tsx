@@ -24,6 +24,15 @@ interface BloombergData {
   high_52w: number | null; low_52w: number | null;
   ytd_return: number | null; dividend_yield: number | null;
   market_cap: number | null; updated_at: string | null;
+  // Expanded fields
+  actual_eps_last: number | null; actual_rev_last: number | null;
+  eps_surprise_pct: number | null; rev_surprise_pct: number | null;
+  last_report_date: string | null;
+  guidance_eps_hi: number | null; guidance_eps_lo: number | null;
+  eps_rev_1m: number | null; eps_rev_3m: number | null;
+  rev_rev_1m: number | null; rev_rev_3m: number | null;
+  est_up_1m: number | null; est_down_1m: number | null;
+  best_eps_ntm: number | null;
 }
 interface CompanyInfo { ticker: string; name: string; sector: string; agent_key: string; agent_name: string; }
 interface ChatMessage { role: 'user' | 'assistant'; content: string }
@@ -466,6 +475,151 @@ function NewsPanel({ ticker, agentKey }: { ticker: string; agentKey: string }) {
   );
 }
 
+// ─── Earnings Actuals vs Consensus ───────────────────────────────────────────
+function EarningsActualsPanel({ bbg }: { bbg: BloombergData }) {
+  const actualEps = toNum(bbg.actual_eps_last);
+  const actualRev = toNum(bbg.actual_rev_last); // $M
+  const epsSurp   = toNum(bbg.eps_surprise_pct);
+  const revSurp   = toNum(bbg.rev_surprise_pct);
+  const consEps   = toNum(bbg.consensus_eps_fy1);
+  const consRev   = toNum(bbg.consensus_rev_fy1); // $M
+  const guidHi    = toNum(bbg.guidance_eps_hi);
+  const guidLo    = toNum(bbg.guidance_eps_lo);
+
+  // Don't render if no actuals data at all
+  if (actualEps == null && actualRev == null) return null;
+
+  const surpriseColor = (v: number | null) => v == null ? G.muted : v >= 0 ? G.green : G.red;
+  const surpriseSign  = (v: number | null) => v != null && v >= 0 ? '+' : '';
+
+  return (
+    <Panel title="LAST EARNINGS · ACTUALS VS CONSENSUS" badge={bbg.last_report_date ?? 'Bloomberg'}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginBottom: 14 }}>
+        {/* EPS actual */}
+        <div style={{ background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '12px 14px' }}>
+          <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginBottom: 4, letterSpacing: 1 }}>ACTUAL EPS</div>
+          <div style={{ fontFamily: G.mono, fontSize: 22, color: G.text, fontWeight: 700 }}>
+            {actualEps != null ? `$${actualEps.toFixed(2)}` : '—'}
+          </div>
+          {consEps != null && <div style={{ fontFamily: G.mono, fontSize: 10, color: G.dim, marginTop: 3 }}>Est ${consEps.toFixed(2)}</div>}
+        </div>
+        {/* EPS surprise */}
+        <div style={{ background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '12px 14px' }}>
+          <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginBottom: 4, letterSpacing: 1 }}>EPS SURPRISE</div>
+          <div style={{ fontFamily: G.mono, fontSize: 22, color: surpriseColor(epsSurp), fontWeight: 700 }}>
+            {epsSurp != null ? `${surpriseSign(epsSurp)}${epsSurp.toFixed(1)}%` : '—'}
+          </div>
+          <div style={{ fontFamily: G.mono, fontSize: 10, color: G.dim, marginTop: 3 }}>vs consensus</div>
+        </div>
+        {/* Revenue actual */}
+        <div style={{ background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '12px 14px' }}>
+          <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginBottom: 4, letterSpacing: 1 }}>ACTUAL REVENUE</div>
+          <div style={{ fontFamily: G.mono, fontSize: 22, color: G.text, fontWeight: 700 }}>
+            {actualRev != null ? `$${(actualRev / 1e3).toFixed(1)}B` : '—'}
+          </div>
+          {consRev != null && <div style={{ fontFamily: G.mono, fontSize: 10, color: G.dim, marginTop: 3 }}>Est ${(consRev / 1e3).toFixed(1)}B</div>}
+        </div>
+        {/* Rev surprise */}
+        <div style={{ background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '12px 14px' }}>
+          <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginBottom: 4, letterSpacing: 1 }}>REV SURPRISE</div>
+          <div style={{ fontFamily: G.mono, fontSize: 22, color: surpriseColor(revSurp), fontWeight: 700 }}>
+            {revSurp != null ? `${surpriseSign(revSurp)}${revSurp.toFixed(1)}%` : '—'}
+          </div>
+          <div style={{ fontFamily: G.mono, fontSize: 10, color: G.dim, marginTop: 3 }}>vs consensus</div>
+        </div>
+        {/* Guidance (US names only) */}
+        {(guidHi != null || guidLo != null) && (
+          <div style={{ background: G.bg, border: `1px solid ${G.greenMuted}`, borderRadius: 4, padding: '12px 14px' }}>
+            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.greenDim, marginBottom: 4, letterSpacing: 1 }}>EPS GUIDANCE</div>
+            <div style={{ fontFamily: G.mono, fontSize: 18, color: G.green, fontWeight: 700 }}>
+              {guidLo != null ? `$${guidLo.toFixed(2)}` : '—'} – {guidHi != null ? `$${guidHi.toFixed(2)}` : '—'}
+            </div>
+            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.dim, marginTop: 3 }}>Company guidance range</div>
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+// ─── EPS Revision Momentum ────────────────────────────────────────────────────
+function RevisionMomentumPanel({ bbg }: { bbg: BloombergData }) {
+  const epsRev1m = toNum(bbg.eps_rev_1m);
+  const epsRev3m = toNum(bbg.eps_rev_3m);
+  const revRev1m = toNum(bbg.rev_rev_1m);
+  const revRev3m = toNum(bbg.rev_rev_3m);
+  const estUp    = toNum(bbg.est_up_1m);
+  const estDown  = toNum(bbg.est_down_1m);
+
+  if (epsRev1m == null && epsRev3m == null) return null;
+
+  const col = (v: number | null) => v == null ? G.muted : v > 0 ? G.green : v < 0 ? G.red : G.muted;
+  const sign = (v: number | null) => v != null && v > 0 ? '+' : '';
+
+  const MomentumRow = ({ label, v1m, v3m }: { label: string; v1m: number | null; v3m: number | null }) => (
+    <div style={{ display: 'flex', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${G.b}` }}>
+      <div style={{ fontFamily: G.mono, fontSize: 11, color: G.muted, width: 130, letterSpacing: 1, flexShrink: 0 }}>{label}</div>
+      <div style={{ display: 'flex', gap: 24, flex: 1 }}>
+        <div style={{ textAlign: 'center', minWidth: 80 }}>
+          <div style={{ fontFamily: G.mono, fontSize: 10, color: G.dim, marginBottom: 2 }}>1 MONTH</div>
+          <div style={{ fontFamily: G.mono, fontSize: 18, color: col(v1m), fontWeight: 700 }}>
+            {v1m != null ? `${sign(v1m)}${v1m.toFixed(1)}%` : '—'}
+          </div>
+        </div>
+        <div style={{ textAlign: 'center', minWidth: 80 }}>
+          <div style={{ fontFamily: G.mono, fontSize: 10, color: G.dim, marginBottom: 2 }}>3 MONTH</div>
+          <div style={{ fontFamily: G.mono, fontSize: 18, color: col(v3m), fontWeight: 700 }}>
+            {v3m != null ? `${sign(v3m)}${v3m.toFixed(1)}%` : '—'}
+          </div>
+        </div>
+        {/* momentum bar */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', paddingLeft: 8 }}>
+          {v1m != null && (
+            <div style={{ position: 'relative', height: 6, background: G.b, borderRadius: 3, width: '100%' }}>
+              <div style={{
+                position: 'absolute',
+                left: v1m >= 0 ? '50%' : `${Math.max(0, 50 + v1m * 2)}%`,
+                width: `${Math.min(50, Math.abs(v1m) * 2)}%`,
+                height: '100%',
+                background: col(v1m),
+                borderRadius: 3,
+              }} />
+              <div style={{ position: 'absolute', left: '50%', top: -2, width: 1, height: 10, background: G.bBright }} />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <Panel title="EPS REVISION MOMENTUM" badge="Bloomberg Consensus">
+      <MomentumRow label="EPS CONSENSUS" v1m={epsRev1m} v3m={epsRev3m} />
+      <MomentumRow label="REVENUE CONSENSUS" v1m={revRev1m} v3m={revRev3m} />
+
+      {/* Analyst revision counts */}
+      {(estUp != null || estDown != null) && (
+        <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
+          <div style={{ flex: 1, background: G.bg, border: `1px solid ${G.greenMuted}`, borderRadius: 4, padding: '10px 14px', textAlign: 'center' }}>
+            <div style={{ fontFamily: G.mono, fontSize: 28, color: G.green, fontWeight: 700 }}>{estUp ?? 0}</div>
+            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginTop: 2, letterSpacing: 1 }}>UPGRADES · 1M</div>
+          </div>
+          <div style={{ flex: 1, background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '10px 14px', textAlign: 'center' }}>
+            <div style={{ fontFamily: G.mono, fontSize: 28, color: G.red, fontWeight: 700 }}>{estDown ?? 0}</div>
+            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginTop: 2, letterSpacing: 1 }}>DOWNGRADES · 1M</div>
+          </div>
+          {bbg.best_eps_ntm != null && (
+            <div style={{ flex: 1, background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '10px 14px', textAlign: 'center' }}>
+              <div style={{ fontFamily: G.mono, fontSize: 28, color: G.blue, fontWeight: 700 }}>${toNum(bbg.best_eps_ntm)?.toFixed(2)}</div>
+              <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginTop: 2, letterSpacing: 1 }}>NTM EPS EST</div>
+            </div>
+          )}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AnalyticsPage() {
   const [ticker, setTicker]             = useState('NVDA');
@@ -499,7 +653,10 @@ export default function AnalyticsPage() {
   const numFields = ['px_last','fwd_pe','ev_ebitda','consensus_eps_fy1','consensus_eps_fy2',
     'consensus_rev_fy1','target_price_mean','target_price_high','target_price_low',
     'buy_count','hold_count','sell_count','short_interest_ratio',
-    'high_52w','low_52w','ytd_return','dividend_yield','market_cap'];
+    'high_52w','low_52w','ytd_return','dividend_yield','market_cap',
+    'actual_eps_last','actual_rev_last','eps_surprise_pct','rev_surprise_pct',
+    'guidance_eps_hi','guidance_eps_lo','eps_rev_1m','eps_rev_3m',
+    'rev_rev_1m','rev_rev_3m','est_up_1m','est_down_1m','best_eps_ntm'];
 
   useEffect(() => {
     if (!ticker) return;
@@ -625,6 +782,8 @@ export default function AnalyticsPage() {
 
               {/* Right: analysis stack */}
               <div style={{ flex: 1, minWidth: 0 }}>
+                <EarningsActualsPanel bbg={bbg} />
+                <RevisionMomentumPanel bbg={bbg} />
                 <EPSRevisionsPanel bbg={bbg} />
                 <AnalystRatings bbg={bbg} />
                 <FinancialsPanel bbg={bbg} />
