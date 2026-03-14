@@ -72,6 +72,7 @@ FIELDS_CORE = [
     "YTD_RETURN",                # YTD return %
     "EQY_DVD_YLD_IND",           # Dividend yield
     "CUR_MKT_CAP",               # Market cap ($M)
+    "AVERAGE_VOLUME",            # Average daily volume (shares, 90D)
 ]
 
 # Expanded fields — earnings actuals + revision momentum
@@ -130,6 +131,7 @@ DB_COLUMN_MAP = {
     "YTD_RETURN":               "ytd_return",
     "EQY_DVD_YLD_IND":          "dividend_yield",
     "CUR_MKT_CAP":              "market_cap",
+    "AVERAGE_VOLUME":           "avg_volume",
     # Expanded fields
     "IS_EPS":                   "actual_eps_last",
     "SALES_REV_TURN":           "actual_rev_last",
@@ -283,7 +285,7 @@ def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
                         target_price_mean, target_price_high, target_price_low,
                         buy_count, hold_count, sell_count,
                         short_interest_ratio, next_earnings_date,
-                        high_52w, low_52w, ytd_return, dividend_yield, market_cap,
+                        high_52w, low_52w, ytd_return, dividend_yield, market_cap, avg_volume,
                         actual_eps_last, actual_rev_last,
                         eps_surprise_pct, rev_surprise_pct, last_report_date,
                         eps_rev_1m, eps_rev_3m, rev_rev_1m, rev_rev_3m,
@@ -298,7 +300,7 @@ def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
                         %(target_price_mean)s, %(target_price_high)s, %(target_price_low)s,
                         %(buy_count)s, %(hold_count)s, %(sell_count)s,
                         %(short_interest_ratio)s, %(next_earnings_date)s,
-                        %(high_52w)s, %(low_52w)s, %(ytd_return)s, %(dividend_yield)s, %(market_cap)s,
+                        %(high_52w)s, %(low_52w)s, %(ytd_return)s, %(dividend_yield)s, %(market_cap)s, %(avg_volume)s,
                         %(actual_eps_last)s, %(actual_rev_last)s,
                         %(eps_surprise_pct)s, %(rev_surprise_pct)s, %(last_report_date)s,
                         %(eps_rev_1m)s, %(eps_rev_3m)s, %(rev_rev_1m)s, %(rev_rev_3m)s,
@@ -328,6 +330,7 @@ def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
                         ytd_return = EXCLUDED.ytd_return,
                         dividend_yield = EXCLUDED.dividend_yield,
                         market_cap = EXCLUDED.market_cap,
+                        avg_volume = EXCLUDED.avg_volume,
                         actual_eps_last = EXCLUDED.actual_eps_last,
                         actual_rev_last = EXCLUDED.actual_rev_last,
                         eps_surprise_pct = EXCLUDED.eps_surprise_pct,

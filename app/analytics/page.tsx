@@ -24,6 +24,7 @@ interface BloombergData {
   high_52w: number | null; low_52w: number | null;
   ytd_return: number | null; dividend_yield: number | null;
   market_cap: number | null; updated_at: string | null;
+  avg_volume: number | null;
   // Expanded fields
   actual_eps_last: number | null; actual_rev_last: number | null;
   eps_surprise_pct: number | null; rev_surprise_pct: number | null;
@@ -33,6 +34,8 @@ interface BloombergData {
   rev_rev_1m: number | null; rev_rev_3m: number | null;
   est_up_1m: number | null; est_down_1m: number | null;
   best_eps_ntm: number | null;
+  px_to_book: number | null; median_eps_fy1: number | null;
+  num_estimates: number | null; eps_std_dev: number | null;
 }
 interface CompanyInfo { ticker: string; name: string; sector: string; agent_key: string; agent_name: string; }
 interface ChatMessage { role: 'user' | 'assistant'; content: string }
@@ -95,17 +98,28 @@ function HeadlineBox({ bbg, company, ticker, livePrice }: { bbg: BloombergData |
         {livePrice && <span style={{ fontFamily: G.mono, fontSize: 11, color: G.muted, background: G.greenFaint, border: `1px solid ${G.greenMuted}`, borderRadius: 2, padding: '1px 6px' }}>LIVE</span>}
       </div>
       <div style={{ display: 'flex', gap: 20, marginTop: 14, flexWrap: 'wrap' }}>
-        {([
-          ['Mkt Cap',    fmtMktCap(bbg?.market_cap ?? null)],
-          ['Fwd P/E',    fmt(bbg?.fwd_pe, 1, 'x')],
-          ['EV/EBITDA',  fmt(bbg?.ev_ebitda, 1, 'x')],
-          ['52W High',   fmt(bbg?.high_52w, 2)],
-          ['52W Low',    fmt(bbg?.low_52w, 2)],
-          ['YTD',        ytd != null ? `${sign}${ytd.toFixed(1)}%` : '—'],
-          ['Div Yield',  fmt(bbg?.dividend_yield, 2, '%')],
-          ['Short Int',  fmt(bbg?.short_interest_ratio, 1, 'x')],
-          ['Next Earn',  bbg?.next_earnings_date ?? '—'],
-        ] as [string, string][]).map(([k, v]) => (
+        {((() => {
+          // ADTV = avg_volume (shares) × px_last, in USD
+          const vol = toNum(bbg?.avg_volume ?? null);
+          const px  = toNum(bbg?.px_last ?? null);
+          const adtv = vol && px ? vol * px : null;
+          const fmtAdtv = adtv == null ? '—'
+            : adtv >= 1e9 ? `$${(adtv / 1e9).toFixed(2)}B`
+            : adtv >= 1e6 ? `$${(adtv / 1e6).toFixed(1)}M`
+            : `$${adtv.toFixed(0)}`;
+          return [
+            ['Mkt Cap (USD)',  fmtMktCap(bbg?.market_cap ?? null)],
+            ['ADTV (USD)',     fmtAdtv],
+            ['Fwd P/E',       fmt(bbg?.fwd_pe, 1, 'x')],
+            ['EV/EBITDA',     fmt(bbg?.ev_ebitda, 1, 'x')],
+            ['52W High',      fmt(bbg?.high_52w, 2)],
+            ['52W Low',       fmt(bbg?.low_52w, 2)],
+            ['YTD',           ytd != null ? `${sign}${ytd.toFixed(1)}%` : '—'],
+            ['Div Yield',     fmt(bbg?.dividend_yield, 2, '%')],
+            ['Short Int',     fmt(bbg?.short_interest_ratio, 1, 'x')],
+            ['Next Earn',     bbg?.next_earnings_date ?? '—'],
+          ] as [string, string][];
+        })()).map(([k, v]) => (
           <div key={k} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, letterSpacing: 1 }}>{k}</span>
             <span style={{ fontFamily: G.mono, fontSize: 13, color: k === 'YTD' ? col : G.text }}>{v}</span>
@@ -175,57 +189,57 @@ function AgentChat({ agentKey, agentName, ticker }: { agentKey: string; agentNam
   ];
 
   return (
-    <div style={{ background: G.surf, border: `1px solid ${G.b}`, borderRadius: 4, display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ background: G.surf, border: `1px solid ${G.b}`, borderRadius: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* header */}
-      <div style={{ padding: '10px 14px', borderBottom: `1px solid ${G.b}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: G.surfAlt }}>
-        <span style={{ fontFamily: G.mono, fontSize: 11, color: G.green, letterSpacing: 2 }}>AGENT · {agentKey.toUpperCase()}</span>
-        <span style={{ fontFamily: G.mono, fontSize: 10, color: G.muted }}>{agentName}</span>
+      <div style={{ padding: '12px 16px', borderBottom: `1px solid ${G.b}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: G.surfAlt, flexShrink: 0 }}>
+        <span style={{ fontFamily: G.mono, fontSize: 16, color: G.green, letterSpacing: 2 }}>AGENT · {agentKey.toUpperCase()}</span>
+        <span style={{ fontFamily: G.mono, fontSize: 13, color: G.muted }}>{agentName}</span>
       </div>
       {/* quick prompts */}
-      <div style={{ padding: '8px 12px', borderBottom: `1px solid ${G.b}`, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <div style={{ padding: '10px 14px', borderBottom: `1px solid ${G.b}`, display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
         {prompts.map(p => (
           <button key={p} onClick={() => setInput(p)}
-            style={{ fontFamily: G.mono, fontSize: 10, color: G.greenDim, background: G.greenFaint, border: `1px solid ${G.greenMuted}`, borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}>
+            style={{ fontFamily: G.mono, fontSize: 13, color: G.greenDim, background: G.greenFaint, border: `1px solid ${G.greenMuted}`, borderRadius: 3, padding: '5px 10px', cursor: 'pointer' }}>
             {p}
           </button>
         ))}
       </div>
       {/* messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12, minHeight: 0 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0 }}>
         {messages.length === 0 && (
-          <p style={{ fontFamily: G.mono, fontSize: 12, color: G.dim, textAlign: 'center', marginTop: 40 }}>
+          <p style={{ fontFamily: G.mono, fontSize: 16, color: G.dim, textAlign: 'center', marginTop: 48 }}>
             Ask {agentKey.toUpperCase()} about {ticker}
           </p>
         )}
         {messages.map((m, i) => (
-          <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '92%' }}>
-            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginBottom: 3, textAlign: m.role === 'user' ? 'right' : 'left' }}>
+          <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '94%' }}>
+            <div style={{ fontFamily: G.mono, fontSize: 13, color: G.muted, marginBottom: 4, textAlign: m.role === 'user' ? 'right' : 'left' }}>
               {m.role === 'user' ? 'YOU' : agentKey.toUpperCase()}
             </div>
-            <div style={{ background: m.role === 'user' ? G.greenFaint : G.surfAlt, border: `1px solid ${m.role === 'user' ? G.greenMuted : G.b}`, borderRadius: 4, padding: '8px 12px', fontFamily: G.mono, fontSize: 12, color: G.text, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+            <div style={{ background: m.role === 'user' ? G.greenFaint : G.surfAlt, border: `1px solid ${m.role === 'user' ? G.greenMuted : G.b}`, borderRadius: 4, padding: '10px 14px', fontFamily: G.mono, fontSize: 16, color: G.text, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
               {m.content}
             </div>
           </div>
         ))}
         {loading && (
           <div style={{ alignSelf: 'flex-start' }}>
-            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginBottom: 3 }}>{agentKey.toUpperCase()}</div>
-            <div style={{ background: G.surfAlt, border: `1px solid ${G.b}`, borderRadius: 4, padding: '8px 12px', fontFamily: G.mono, fontSize: 12, color: G.greenDim }}>▋</div>
+            <div style={{ fontFamily: G.mono, fontSize: 13, color: G.muted, marginBottom: 4 }}>{agentKey.toUpperCase()}</div>
+            <div style={{ background: G.surfAlt, border: `1px solid ${G.b}`, borderRadius: 4, padding: '10px 14px', fontFamily: G.mono, fontSize: 18, color: G.greenDim }}>▋</div>
           </div>
         )}
         <div ref={endRef} />
       </div>
       {/* input */}
-      <div style={{ padding: '10px 12px', borderTop: `1px solid ${G.b}`, display: 'flex', gap: 8 }}>
+      <div style={{ padding: '12px 14px', borderTop: `1px solid ${G.b}`, display: 'flex', gap: 8, flexShrink: 0 }}>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
           placeholder={`Ask about ${ticker}…`}
-          style={{ flex: 1, fontFamily: G.mono, fontSize: 12, color: G.text, background: G.bg, border: `1px solid ${G.b}`, borderRadius: 3, padding: '8px 10px', outline: 'none' }}
+          style={{ flex: 1, fontFamily: G.mono, fontSize: 16, color: G.text, background: G.bg, border: `1px solid ${G.b}`, borderRadius: 3, padding: '10px 12px', outline: 'none' }}
         />
         <button onClick={send} disabled={loading || !input.trim()}
-          style={{ fontFamily: G.mono, fontSize: 11, color: G.bg, background: loading ? G.greenMuted : G.green, border: 'none', borderRadius: 3, padding: '0 14px', cursor: loading ? 'default' : 'pointer', letterSpacing: 1 }}>
+          style={{ fontFamily: G.mono, fontSize: 15, color: G.bg, background: loading ? G.greenMuted : G.green, border: 'none', borderRadius: 3, padding: '0 18px', cursor: loading ? 'default' : 'pointer', letterSpacing: 1 }}>
           SEND
         </button>
       </div>
@@ -831,10 +845,11 @@ export default function AnalyticsPage() {
   const numFields = ['px_last','fwd_pe','ev_ebitda','consensus_eps_fy1','consensus_eps_fy2',
     'consensus_rev_fy1','target_price_mean','target_price_high','target_price_low',
     'buy_count','hold_count','sell_count','short_interest_ratio',
-    'high_52w','low_52w','ytd_return','dividend_yield','market_cap',
+    'high_52w','low_52w','ytd_return','dividend_yield','market_cap','avg_volume',
     'actual_eps_last','actual_rev_last','eps_surprise_pct','rev_surprise_pct',
     'guidance_eps_hi','guidance_eps_lo','eps_rev_1m','eps_rev_3m',
-    'rev_rev_1m','rev_rev_3m','est_up_1m','est_down_1m','best_eps_ntm'];
+    'rev_rev_1m','rev_rev_3m','est_up_1m','est_down_1m','best_eps_ntm',
+    'px_to_book','median_eps_fy1','num_estimates','eps_std_dev'];
 
   useEffect(() => {
     if (!ticker) return;
@@ -933,54 +948,49 @@ export default function AnalyticsPage() {
         )}
       </div>
 
-      {/* ── body ── */}
-      <div style={{ padding: '20px 24px', maxWidth: 1400, margin: '0 auto' }}>
+      {/* ── body: chat far-left + scrollable right panel ── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start' }}>
 
-        {notFound && !loading ? (
-          <div style={{ textAlign: 'center', paddingTop: 80 }}>
-            <p style={{ fontFamily: G.mono, fontSize: 14, color: G.muted }}>
-              No Bloomberg data for <span style={{ color: G.green }}>{ticker}</span>
-            </p>
-            <p style={{ fontFamily: G.mono, fontSize: 12, color: G.dim, marginTop: 8 }}>
-              Check that this ticker is in your coverage universe and bloomberg-sync.py has run.
-            </p>
-          </div>
-        ) : bbg ? (
-          <>
-            {/* Headline bar */}
-            <HeadlineBox bbg={bbg} company={company} ticker={ticker} livePrice={livePrice} />
+        {/* ── Agent chat: flush left, full-height sticky ── */}
+        <div style={{ width: 450, flexShrink: 0, position: 'sticky', top: 54, height: 'calc(100vh - 54px)', borderRight: `1px solid ${G.b}` }}>
+          <AgentChat agentKey={agentKey} agentName={agentName} ticker={ticker} />
+        </div>
 
-            {/* Two-column layout */}
-            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        {/* ── Right: headline + analysis stack ── */}
+        <div style={{ flex: 1, minWidth: 0, padding: '20px 24px' }}>
 
-              {/* Left: sticky agent chat */}
-              <div style={{ width: 360, flexShrink: 0, position: 'sticky', top: 60, height: 'calc(100vh - 80px)' }}>
-                <AgentChat agentKey={agentKey} agentName={agentName} ticker={ticker} />
-              </div>
-
-              {/* Right: analysis stack */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <EarningsActualsPanel bbg={bbg} />
-                <RevisionMomentumPanel bbg={bbg} />
-                <EPSRevisionsPanel bbg={bbg} />
-                <AnalystRatings bbg={bbg} />
-                <ValuationHistoryPanel ticker={ticker} bbg={bbg} />
-                <FinancialsPanel bbg={bbg} />
-                <PriceRangePanel bbg={bbg} livePrice={livePrice} />
-                <NewsPanel ticker={ticker} agentKey={agentKey} />
-              </div>
+          {notFound && !loading ? (
+            <div style={{ textAlign: 'center', paddingTop: 80 }}>
+              <p style={{ fontFamily: G.mono, fontSize: 14, color: G.muted }}>
+                No Bloomberg data for <span style={{ color: G.green }}>{ticker}</span>
+              </p>
+              <p style={{ fontFamily: G.mono, fontSize: 12, color: G.dim, marginTop: 8 }}>
+                Check that this ticker is in your coverage universe and bloomberg-sync.py has run.
+              </p>
             </div>
-          </>
-        ) : !loading ? (
-          <div style={{ textAlign: 'center', paddingTop: 80 }}>
-            <p style={{ fontFamily: G.mono, fontSize: 14, color: G.muted }}>Enter a ticker above to load Bloomberg data</p>
-            <p style={{ fontFamily: G.mono, fontSize: 12, color: G.dim, marginTop: 8 }}>252 companies covered across 25 agents</p>
-          </div>
-        ) : (
-          <div style={{ textAlign: 'center', paddingTop: 80 }}>
-            <p style={{ fontFamily: G.mono, fontSize: 12, color: G.muted }}>Loading…</p>
-          </div>
-        )}
+          ) : bbg ? (
+            <>
+              <HeadlineBox bbg={bbg} company={company} ticker={ticker} livePrice={livePrice} />
+              <EarningsActualsPanel bbg={bbg} />
+              <RevisionMomentumPanel bbg={bbg} />
+              <EPSRevisionsPanel bbg={bbg} />
+              <AnalystRatings bbg={bbg} />
+              <ValuationHistoryPanel ticker={ticker} bbg={bbg} />
+              <FinancialsPanel bbg={bbg} />
+              <PriceRangePanel bbg={bbg} livePrice={livePrice} />
+              <NewsPanel ticker={ticker} agentKey={agentKey} />
+            </>
+          ) : !loading ? (
+            <div style={{ textAlign: 'center', paddingTop: 80 }}>
+              <p style={{ fontFamily: G.mono, fontSize: 14, color: G.muted }}>Enter a ticker above to load Bloomberg data</p>
+              <p style={{ fontFamily: G.mono, fontSize: 12, color: G.dim, marginTop: 8 }}>252 companies covered across 25 agents</p>
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', paddingTop: 80 }}>
+              <p style={{ fontFamily: G.mono, fontSize: 12, color: G.muted }}>Loading…</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
