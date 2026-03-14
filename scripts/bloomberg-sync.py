@@ -99,6 +99,8 @@ FIELDS_EXPANDED = [
     "BEST_MEDIAN_EPS",           # Median consensus EPS FY1
     "BEST_NUM_EST",              # Total number of EPS estimates
     "BEST_EPS_STD_DEV",          # Std deviation of EPS estimates
+    # v5 additions
+    "CEO_NAME",                  # CEO name (string)
 ]
 
 FIELDS = FIELDS_CORE + FIELDS_EXPANDED
@@ -109,6 +111,9 @@ DATE_FIELDS = {"EXPECTED_REPORT_DATE", "EARN_ANN_DT"}
 # Integer fields
 INT_FIELDS = {"TOT_BUY_REC", "TOT_HOLD_REC", "TOT_SELL_REC",
               "BEST_NUM_EST_UP_EPS_1M", "BEST_NUM_EST_DOWN_EPS_1M"}
+
+# String fields (use getValueAsString instead of getValueAsFloat)
+STRING_FIELDS = {"CEO_NAME"}
 
 DB_COLUMN_MAP = {
     # Core fields
@@ -152,6 +157,8 @@ DB_COLUMN_MAP = {
     "BEST_MEDIAN_EPS":          "median_eps_fy1",
     "BEST_NUM_EST":             "num_estimates",
     "BEST_EPS_STD_DEV":         "eps_std_dev",
+    # v5 additions
+    "CEO_NAME":                 "ceo_name",
 }
 
 
@@ -237,6 +244,12 @@ def fetch_bloomberg_data(bbg_tickers: list) -> dict:
                                     row[field] = int(elem.getValueAsFloat())
                                 except Exception:
                                     row[field] = None
+                            elif field in STRING_FIELDS:
+                                try:
+                                    v = elem.getValueAsString()
+                                    row[field] = v if v else None
+                                except Exception:
+                                    row[field] = None
                             else:
                                 try:
                                     row[field] = elem.getValueAsFloat()
@@ -256,7 +269,7 @@ def fetch_bloomberg_data(bbg_tickers: list) -> dict:
 
 
 def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
-    """Upsert bloomberg data into the bloomberg_data table (all 33 fields)."""
+    """Upsert bloomberg data into the bloomberg_data table."""
     now = datetime.now(timezone.utc).isoformat()
     success_count = 0
     error_count = 0
@@ -292,6 +305,7 @@ def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
                         est_up_1m, est_down_1m, best_eps_ntm,
                         guidance_eps_hi, guidance_eps_lo,
                         px_to_book, median_eps_fy1, num_estimates, eps_std_dev,
+                        ceo_name,
                         updated_at
                     ) VALUES (
                         %(ticker)s, %(bbg_ticker)s,
@@ -307,6 +321,7 @@ def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
                         %(est_up_1m)s, %(est_down_1m)s, %(best_eps_ntm)s,
                         %(guidance_eps_hi)s, %(guidance_eps_lo)s,
                         %(px_to_book)s, %(median_eps_fy1)s, %(num_estimates)s, %(eps_std_dev)s,
+                        %(ceo_name)s,
                         %(updated_at)s
                     )
                     ON CONFLICT (ticker) DO UPDATE SET
@@ -349,7 +364,8 @@ def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
                         median_eps_fy1  = EXCLUDED.median_eps_fy1,
                         num_estimates   = EXCLUDED.num_estimates,
                         eps_std_dev     = EXCLUDED.eps_std_dev,
-                        updated_at = EXCLUDED.updated_at
+                        ceo_name        = EXCLUDED.ceo_name,
+                        updated_at      = EXCLUDED.updated_at
                 """, values)
                 success_count += 1
             except Exception as e:
@@ -415,7 +431,7 @@ def upsert_valuation_history(conn, companies: list, bloomberg_results: dict):
 def main():
     log.info("=== Kabuten 5.0 Bloomberg Sync ===")
     log.info(f"Started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    log.info(f"Fields: {len(FIELDS_CORE)} core + {len(FIELDS_EXPANDED)} expanded = {len(FIELDS)} total (v3)")
+    log.info(f"Fields: {len(FIELDS_CORE)} core + {len(FIELDS_EXPANDED)} expanded = {len(FIELDS)} total (v5)")
 
     try:
         conn = get_db_connection()
