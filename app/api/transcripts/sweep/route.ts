@@ -3,15 +3,20 @@ import { AGENTS } from '@/lib/agents-config';
 
 // Weekly transcript sweep — kicks off the scan chain starting from the first agent.
 // Triggered by Vercel cron: 0 20 * * 1 (Monday 20:00 UTC)
-// Each scan/?agent=X handles its companies then chains to the next agent.
+// Also triggerable manually from browser (kabuten-auth cookie) or cron secret header.
 
 function isAuthorized(req: NextRequest): boolean {
-  // Allow Vercel cron (sends Authorization: Bearer <CRON_SECRET>)
+  // 1. Vercel cron / direct header
   const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  const xHeader = req.headers.get('x-cron-secret');
-  const auth = req.headers.get('authorization');
-  return xHeader === secret || auth === `Bearer ${secret}`;
+  if (secret) {
+    const xHeader = req.headers.get('x-cron-secret');
+    const auth = req.headers.get('authorization');
+    if (xHeader === secret || auth === `Bearer ${secret}`) return true;
+  }
+  // 2. Browser session cookie
+  const cookie = req.cookies.get('kabuten-auth');
+  if (cookie?.value === 'true') return true;
+  return false;
 }
 
 export async function GET(req: NextRequest) {
@@ -37,6 +42,6 @@ export async function GET(req: NextRequest) {
     started: true,
     first_agent: firstAgent.agent_key.toUpperCase(),
     total_agents: AGENTS.filter((a) => a.hasSweep && a.tickers.length > 0).length,
-    message: 'Transcript sweep chain started',
+    message: 'Transcript sweep chain started — check back in ~20 minutes for results',
   });
 }
