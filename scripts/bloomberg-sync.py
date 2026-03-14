@@ -101,6 +101,16 @@ FIELDS_EXPANDED = [
     "BEST_EPS_STD_DEV",          # Std deviation of EPS estimates
     # v5 additions
     "CEO_NAME",                  # CEO name (string)
+    # v6 additions — consensus high/low + EBIT
+    "BEST_EPS_HIGH",             # FY1 EPS high estimate
+    "BEST_EPS_LOW",              # FY1 EPS low estimate
+    "BEST_SALES_HIGH",           # FY1 Revenue high estimate ($M)
+    "BEST_SALES_LOW",            # FY1 Revenue low estimate ($M)
+    "BEST_SALES_NXT_YR",         # FY2 Revenue consensus ($M)
+    "BEST_EBIT",                 # FY1 EBIT consensus ($M)
+    "BEST_EBIT_HIGH",            # FY1 EBIT high estimate ($M)
+    "BEST_EBIT_LOW",             # FY1 EBIT low estimate ($M)
+    "CRNCY",                     # Trading currency (USD/JPY/EUR/etc.)
 ]
 
 FIELDS = FIELDS_CORE + FIELDS_EXPANDED
@@ -113,7 +123,7 @@ INT_FIELDS = {"TOT_BUY_REC", "TOT_HOLD_REC", "TOT_SELL_REC",
               "BEST_NUM_EST_UP_EPS_1M", "BEST_NUM_EST_DOWN_EPS_1M"}
 
 # String fields (use getValueAsString instead of getValueAsFloat)
-STRING_FIELDS = {"CEO_NAME"}
+STRING_FIELDS = {"CEO_NAME", "CRNCY"}
 
 DB_COLUMN_MAP = {
     # Core fields
@@ -159,6 +169,16 @@ DB_COLUMN_MAP = {
     "BEST_EPS_STD_DEV":         "eps_std_dev",
     # v5 additions
     "CEO_NAME":                 "ceo_name",
+    # v6 additions
+    "BEST_EPS_HIGH":            "consensus_eps_fy1_high",
+    "BEST_EPS_LOW":             "consensus_eps_fy1_low",
+    "BEST_SALES_HIGH":          "consensus_rev_fy1_high",
+    "BEST_SALES_LOW":           "consensus_rev_fy1_low",
+    "BEST_SALES_NXT_YR":        "consensus_rev_fy2",
+    "BEST_EBIT":                "consensus_ebit_fy1",
+    "BEST_EBIT_HIGH":           "consensus_ebit_fy1_high",
+    "BEST_EBIT_LOW":            "consensus_ebit_fy1_low",
+    "CRNCY":                    "crncy",
 }
 
 
@@ -306,6 +326,10 @@ def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
                         guidance_eps_hi, guidance_eps_lo,
                         px_to_book, median_eps_fy1, num_estimates, eps_std_dev,
                         ceo_name,
+                        consensus_eps_fy1_high, consensus_eps_fy1_low,
+                        consensus_rev_fy1_high, consensus_rev_fy1_low, consensus_rev_fy2,
+                        consensus_ebit_fy1, consensus_ebit_fy1_high, consensus_ebit_fy1_low,
+                        crncy,
                         updated_at
                     ) VALUES (
                         %(ticker)s, %(bbg_ticker)s,
@@ -322,6 +346,10 @@ def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
                         %(guidance_eps_hi)s, %(guidance_eps_lo)s,
                         %(px_to_book)s, %(median_eps_fy1)s, %(num_estimates)s, %(eps_std_dev)s,
                         %(ceo_name)s,
+                        %(consensus_eps_fy1_high)s, %(consensus_eps_fy1_low)s,
+                        %(consensus_rev_fy1_high)s, %(consensus_rev_fy1_low)s, %(consensus_rev_fy2)s,
+                        %(consensus_ebit_fy1)s, %(consensus_ebit_fy1_high)s, %(consensus_ebit_fy1_low)s,
+                        %(crncy)s,
                         %(updated_at)s
                     )
                     ON CONFLICT (ticker) DO UPDATE SET
@@ -364,8 +392,17 @@ def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
                         median_eps_fy1  = EXCLUDED.median_eps_fy1,
                         num_estimates   = EXCLUDED.num_estimates,
                         eps_std_dev     = EXCLUDED.eps_std_dev,
-                        ceo_name        = EXCLUDED.ceo_name,
-                        updated_at      = EXCLUDED.updated_at
+                        ceo_name             = EXCLUDED.ceo_name,
+                        consensus_eps_fy1_high = EXCLUDED.consensus_eps_fy1_high,
+                        consensus_eps_fy1_low  = EXCLUDED.consensus_eps_fy1_low,
+                        consensus_rev_fy1_high = EXCLUDED.consensus_rev_fy1_high,
+                        consensus_rev_fy1_low  = EXCLUDED.consensus_rev_fy1_low,
+                        consensus_rev_fy2      = EXCLUDED.consensus_rev_fy2,
+                        consensus_ebit_fy1     = EXCLUDED.consensus_ebit_fy1,
+                        consensus_ebit_fy1_high = EXCLUDED.consensus_ebit_fy1_high,
+                        consensus_ebit_fy1_low  = EXCLUDED.consensus_ebit_fy1_low,
+                        crncy                  = EXCLUDED.crncy,
+                        updated_at             = EXCLUDED.updated_at
                 """, values)
                 success_count += 1
             except Exception as e:
@@ -431,7 +468,7 @@ def upsert_valuation_history(conn, companies: list, bloomberg_results: dict):
 def main():
     log.info("=== Kabuten 5.0 Bloomberg Sync ===")
     log.info(f"Started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    log.info(f"Fields: {len(FIELDS_CORE)} core + {len(FIELDS_EXPANDED)} expanded = {len(FIELDS)} total (v5)")
+    log.info(f"Fields: {len(FIELDS_CORE)} core + {len(FIELDS_EXPANDED)} expanded = {len(FIELDS)} total (v6)")
 
     try:
         conn = get_db_connection()

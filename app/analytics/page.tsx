@@ -37,6 +37,12 @@ interface BloombergData {
   best_eps_ntm: number | null;
   px_to_book: number | null; median_eps_fy1: number | null;
   num_estimates: number | null; eps_std_dev: number | null;
+  // v6 fields
+  consensus_eps_fy1_high: number | null; consensus_eps_fy1_low: number | null;
+  consensus_rev_fy1_high: number | null; consensus_rev_fy1_low: number | null;
+  consensus_rev_fy2: number | null;
+  consensus_ebit_fy1: number | null; consensus_ebit_fy1_high: number | null; consensus_ebit_fy1_low: number | null;
+  crncy: string | null;
 }
 interface CompanyInfo { ticker: string; name: string; sector: string; agent_key: string; agent_name: string; }
 interface ChatMessage { role: 'user' | 'assistant'; content: string }
@@ -53,13 +59,23 @@ const fmt = (v: unknown, decimals = 1, suffix = '') => {
   return n == null ? '—' : `${n.toFixed(decimals)}${suffix}`;
 };
 
-// Bloomberg CUR_MKT_CAP is in millions — display in bn
-const fmtMktCapBn = (v: unknown) => {
+// Bloomberg CUR_MKT_CAP: USD stocks return $M, JPY/KRW/TWD stocks return full local currency.
+// We normalise to a readable display using the crncy field.
+const fmtMktCapBn = (v: unknown, crncy?: string | null) => {
   const n = toNum(v);
   if (n == null) return '—';
-  if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}tn`;
-  if (n >= 1e3) return `$${(n / 1e3).toFixed(1)}bn`;
-  return `$${n.toFixed(0)}m`;
+  const c = crncy?.toUpperCase() ?? 'USD';
+  // Non-USD large-denomination currencies: Bloomberg returns full units (not millions)
+  // Approximate FX to USD millions: JPY÷150/1e6, KRW÷1350/1e6, TWD÷32/1e6, HKD÷7.8/1e6
+  const fxToUsdM: Record<string, number> = {
+    JPY: 1 / 150 / 1e6, KRW: 1 / 1350 / 1e6, TWD: 1 / 32 / 1e6,
+    HKD: 1 / 7.8 / 1e6, CNY: 1 / 7.2 / 1e6, INR: 1 / 83 / 1e6,
+  };
+  // USD + EUR + GBP + SGD etc. come back in $M already
+  const usdM = fxToUsdM[c] != null ? n * fxToUsdM[c] : n;
+  if (usdM >= 1e6) return `$${(usdM / 1e6).toFixed(2)}tn`;
+  if (usdM >= 1e3) return `$${(usdM / 1e3).toFixed(1)}bn`;
+  return `$${usdM.toFixed(0)}m`;
 };
 
 // ─── Panel wrapper ────────────────────────────────────────────────────────────
@@ -106,7 +122,7 @@ function HeadlineBox({ bbg, company, ticker, livePrice }: { bbg: BloombergData |
     : `$${adtv.toFixed(0)}`;
 
   const stats: [string, string, string?][] = [
-    ['Mkt Cap (USD)', fmtMktCapBn(bbg?.market_cap ?? null)],
+    ['Mkt Cap (USD)', fmtMktCapBn(bbg?.market_cap ?? null, bbg?.crncy)],
     ['ADTV (USD)',    fmtAdtv],
     ['Agent Rating',  ratingScore != null ? `${ratingScore.toFixed(2)} ${ratingLabel}` : '—', ratingColor],
     ['Fwd P/E',      fmt(bbg?.fwd_pe, 1, 'x')],
@@ -264,45 +280,49 @@ function ConsensusChangePanel({ bbg }: { bbg: BloombergData }) {
   const [tab, setTab] = useState<ConsensusTab>('EPS');
 
   const epsFy1Avg = toNum(bbg.consensus_eps_fy1);
+  const epsFy1Hi  = toNum(bbg.consensus_eps_fy1_high);
+  const epsFy1Lo  = toNum(bbg.consensus_eps_fy1_low);
   const epsFy2Avg = toNum(bbg.consensus_eps_fy2);
-  const epsStd    = toNum(bbg.eps_std_dev);
   const epsRev3m  = toNum(bbg.eps_rev_3m);
   const revRev3m  = toNum(bbg.rev_rev_3m);
-  const revFy1Avg = toNum(bbg.consensus_rev_fy1); // $M
-  const actualEps = toNum(bbg.actual_eps_last);
-
-  // Approximate hi/lo from ±1.5σ
-  const epsFy1Hi = epsFy1Avg != null && epsStd != null ? epsFy1Avg + epsStd * 1.5 : null;
-  const epsFy1Lo = epsFy1Avg != null && epsStd != null ? epsFy1Avg - epsStd * 1.5 : null;
+  const revFy1Avg = toNum(bbg.consensus_rev_fy1);
+  const revFy1Hi  = toNum(bbg.consensus_rev_fy1_high);
+  const revFy1Lo  = toNum(bbg.consensus_rev_fy1_low);
+  const revFy2Avg = toNum(bbg.consensus_rev_fy2);
+  const ebitFy1Avg = toNum(bbg.consensus_ebit_fy1);
+  const ebitFy1Hi  = toNum(bbg.consensus_ebit_fy1_high);
+  const ebitFy1Lo  = toNum(bbg.consensus_ebit_fy1_low);
+  const actualEps  = toNum(bbg.actual_eps_last);
 
   type Row = { label: string; currFY: string; fy1: string; fy2: string };
 
   const getRows = (): Row[] => {
     const fmtPct = (v: number | null) => v != null ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : '—';
+    const f3 = (v: number | null) => v != null ? v.toFixed(3) : '—';
+    const fmtRev = (v: number | null) => v != null ? `$${(v / 1e3).toFixed(1)}B` : '—';
 
     if (tab === 'EPS') {
       return [
-        { label: 'High',          currFY: '—',                                          fy1: epsFy1Hi != null ? epsFy1Hi.toFixed(3) : '—', fy2: '—' },
-        { label: 'Average',       currFY: actualEps != null ? actualEps.toFixed(3) : '—', fy1: epsFy1Avg != null ? epsFy1Avg.toFixed(3) : '—', fy2: epsFy2Avg != null ? epsFy2Avg.toFixed(3) : '—' },
-        { label: 'Low',           currFY: '—',                                          fy1: epsFy1Lo != null ? epsFy1Lo.toFixed(3) : '—', fy2: '—' },
-        { label: 'Avg 3mth chg%', currFY: '—',                                          fy1: fmtPct(epsRev3m),                                fy2: '—' },
+        { label: 'High',          currFY: '—',               fy1: f3(epsFy1Hi),  fy2: '—' },
+        { label: 'Average',       currFY: f3(actualEps),     fy1: f3(epsFy1Avg), fy2: f3(epsFy2Avg) },
+        { label: 'Low',           currFY: '—',               fy1: f3(epsFy1Lo),  fy2: '—' },
+        { label: 'Avg 3mth chg%', currFY: '—',               fy1: fmtPct(epsRev3m), fy2: '—' },
       ];
     }
     if (tab === 'Revenue') {
-      const fmtRev = (v: number | null) => v != null ? `$${(v / 1e3).toFixed(1)}B` : '—';
       return [
-        { label: 'High',          currFY: '—', fy1: '—',              fy2: '—' },
-        { label: 'Average',       currFY: '—', fy1: fmtRev(revFy1Avg), fy2: '—' },
-        { label: 'Low',           currFY: '—', fy1: '—',              fy2: '—' },
-        { label: 'Avg 3mth chg%', currFY: '—', fy1: fmtPct(revRev3m), fy2: '—' },
+        { label: 'High',          currFY: '—', fy1: fmtRev(revFy1Hi),  fy2: '—' },
+        { label: 'Average',       currFY: '—', fy1: fmtRev(revFy1Avg), fy2: fmtRev(revFy2Avg) },
+        { label: 'Low',           currFY: '—', fy1: fmtRev(revFy1Lo),  fy2: '—' },
+        { label: 'Avg 3mth chg%', currFY: '—', fy1: fmtPct(revRev3m),  fy2: '—' },
       ];
     }
-    // EBIT — requires additional Bloomberg fields
+    // EBIT
     return [
-      { label: 'High',          currFY: '—', fy1: '—', fy2: '—' },
-      { label: 'Average',       currFY: '—', fy1: '—', fy2: '—' },
-      { label: 'Low',           currFY: '—', fy1: '—', fy2: '—' },
-      { label: 'Avg 3mth chg%', currFY: '—', fy1: '—', fy2: '—' },
+      { label: 'High',          currFY: '—', fy1: fmtRev(ebitFy1Hi),  fy2: '—' },
+      { label: 'Average',       currFY: '—', fy1: fmtRev(ebitFy1Avg), fy2: '—' },
+      { label: 'Low',           currFY: '—', fy1: fmtRev(ebitFy1Lo),  fy2: '—' },
+      { label: 'Avg 3mth chg%', currFY: '—', fy1: '—',                fy2: '—' },
     ];
   };
 
@@ -340,9 +360,9 @@ function ConsensusChangePanel({ bbg }: { bbg: BloombergData }) {
         ))}
       </div>
 
-      {tab !== 'EPS' && (
+      {tab === 'EBIT' && (
         <div style={{ marginTop: 8, fontFamily: G.mono, fontSize: 10, color: G.dim }}>
-          Full {tab} consensus detail (High/Low/3mth) requires extended Bloomberg sync
+          EBIT 3mth revision % requires additional Bloomberg consensus fields
         </div>
       )}
     </Panel>
@@ -682,7 +702,10 @@ export default function AnalyticsPage() {
     'actual_eps_last','actual_rev_last','eps_surprise_pct','rev_surprise_pct',
     'guidance_eps_hi','guidance_eps_lo','eps_rev_1m','eps_rev_3m',
     'rev_rev_1m','rev_rev_3m','est_up_1m','est_down_1m','best_eps_ntm',
-    'px_to_book','median_eps_fy1','num_estimates','eps_std_dev'];
+    'px_to_book','median_eps_fy1','num_estimates','eps_std_dev',
+    'consensus_eps_fy1_high','consensus_eps_fy1_low',
+    'consensus_rev_fy1_high','consensus_rev_fy1_low','consensus_rev_fy2',
+    'consensus_ebit_fy1','consensus_ebit_fy1_high','consensus_ebit_fy1_low'];
 
   useEffect(() => {
     if (!ticker) return;
