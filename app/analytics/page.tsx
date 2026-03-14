@@ -360,6 +360,16 @@ export default function AnalyticsPage() {
       fetch(`/api/companies`, { headers: { authorization: 'Bearer fingerthumb' } }).then(r => r.json()),
       fetch(`/api/price?tickers=${ticker}`).then(r => r.json()).catch(() => ({})),
     ]).then(([bbgData, companies, priceData]) => {
+      // Coerce all numeric Bloomberg fields from string → number at the boundary
+      const numFields = ['px_last','fwd_pe','ev_ebitda','consensus_eps_fy1','consensus_eps_fy2',
+        'consensus_rev_fy1','target_price_mean','target_price_high','target_price_low',
+        'buy_count','hold_count','sell_count','short_interest_ratio',
+        'high_52w','low_52w','ytd_return','dividend_yield','market_cap'];
+      if (bbgData) {
+        for (const f of numFields) {
+          if (bbgData[f] != null) bbgData[f] = toNum(bbgData[f]);
+        }
+      }
       setBbg(bbgData ?? null);
       setNotFound(!bbgData);
       const co = (companies as CompanyInfo[]).find((c: CompanyInfo) => c.ticker === ticker);
