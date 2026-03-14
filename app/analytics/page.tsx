@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 // ─── palette ────────────────────────────────────────────────────────────────
 const G = {
@@ -11,9 +11,6 @@ const G = {
   amber: '#ffcc00', red: '#ff4444', blue: '#4a9eff',
   mono: "'IBM Plex Mono','Courier New',monospace",
 } as const;
-
-// ─── quick-ticker chips ──────────────────────────────────────────────────────
-const QUICK = ['NVDA', 'ASML', 'TSM', 'AMAT', 'LRCX', 'KLAC', 'WTC', 'AAPL', 'MSFT'];
 
 // ─── types ───────────────────────────────────────────────────────────────────
 interface BloombergData {
@@ -46,14 +43,13 @@ const fmt = (v: unknown, decimals = 1, suffix = '') => {
 const fmtMktCap = (v: unknown) => {
   const n = toNum(v);
   if (n == null) return '—';
-  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
-  if (n >= 1e9)  return `$${(n / 1e9).toFixed(1)}B`;
-  if (n >= 1e6)  return `$${(n / 1e6).toFixed(0)}M`;
-  return `$${n.toFixed(0)}`;
+  // Bloomberg CUR_MKT_CAP is in millions
+  if (n >= 1e6)  return `$${(n / 1e6).toFixed(2)}T`;
+  if (n >= 1e3)  return `$${(n / 1e3).toFixed(1)}B`;
+  return `$${n.toFixed(0)}M`;
 };
 
-// ─── sub-components ──────────────────────────────────────────────────────────
-
+// ─── Panel wrapper ────────────────────────────────────────────────────────────
 function Panel({ title, badge, children }: { title: string; badge?: string; children: React.ReactNode }) {
   return (
     <div style={{ background: G.surf, border: `1px solid ${G.b}`, borderRadius: 4, marginBottom: 16, overflow: 'hidden' }}>
@@ -66,9 +62,10 @@ function Panel({ title, badge, children }: { title: string; badge?: string; chil
   );
 }
 
+// ─── Headline ────────────────────────────────────────────────────────────────
 function HeadlineBox({ bbg, company, ticker, livePrice }: { bbg: BloombergData | null; company: CompanyInfo | null; ticker: string; livePrice: number | null }) {
   const price = livePrice ?? bbg?.px_last ?? null;
-  const ytd = bbg?.ytd_return ?? null;
+  const ytd = toNum(bbg?.ytd_return);
   const up = ytd != null ? ytd >= 0 : true;
   const col = up ? G.green : G.red;
   const sign = up ? '+' : '';
@@ -86,10 +83,10 @@ function HeadlineBox({ bbg, company, ticker, livePrice }: { bbg: BloombergData |
         ) : (
           <span style={{ fontFamily: G.mono, fontSize: 24, color: G.dim }}>—</span>
         )}
-        {livePrice && <span style={{ fontFamily: G.mono, fontSize: 11, color: G.muted }}>LIVE</span>}
+        {livePrice && <span style={{ fontFamily: G.mono, fontSize: 11, color: G.muted, background: G.greenFaint, border: `1px solid ${G.greenMuted}`, borderRadius: 2, padding: '1px 6px' }}>LIVE</span>}
       </div>
       <div style={{ display: 'flex', gap: 20, marginTop: 14, flexWrap: 'wrap' }}>
-        {[
+        {([
           ['Mkt Cap',    fmtMktCap(bbg?.market_cap ?? null)],
           ['Fwd P/E',    fmt(bbg?.fwd_pe, 1, 'x')],
           ['EV/EBITDA',  fmt(bbg?.ev_ebitda, 1, 'x')],
@@ -99,7 +96,7 @@ function HeadlineBox({ bbg, company, ticker, livePrice }: { bbg: BloombergData |
           ['Div Yield',  fmt(bbg?.dividend_yield, 2, '%')],
           ['Short Int',  fmt(bbg?.short_interest_ratio, 1, 'x')],
           ['Next Earn',  bbg?.next_earnings_date ?? '—'],
-        ].map(([k, v]) => (
+        ] as [string, string][]).map(([k, v]) => (
           <div key={k} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, letterSpacing: 1 }}>{k}</span>
             <span style={{ fontFamily: G.mono, fontSize: 13, color: k === 'YTD' ? col : G.text }}>{v}</span>
@@ -115,22 +112,29 @@ function HeadlineBox({ bbg, company, ticker, livePrice }: { bbg: BloombergData |
   );
 }
 
+// ─── Agent Chat ───────────────────────────────────────────────────────────────
 function AgentChat({ agentKey, agentName, ticker }: { agentKey: string; agentName: string; ticker: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [threadId, setThreadId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
+  // Load recent thread history when agent changes
   useEffect(() => {
-    setMessages([]); setThreadId(null);
-    fetch(`/api/agents/${agentKey}`, { headers: { authorization: 'Bearer fingerthumb' } })
+    if (!agentKey) return;
+    setMessages([]);
+    const key = agentKey.toLowerCase();
+    fetch(`/api/agents/${key}`, { headers: { authorization: 'Bearer fingerthumb' } })
       .then(r => r.json())
       .then(d => {
-        const msgs: ChatMessage[] = (d.messages ?? []).slice(-6).map((m: { role: string; content: string }) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
-        setMessages(msgs);
-        setThreadId(d.thread_id ?? null);
-      }).catch(() => {});
+        const hist: { role: string; content: string }[] = d.thread_history ?? [];
+        const recent = hist
+          .filter(m => m.role === 'user' || m.role === 'assistant')
+          .slice(-8)
+          .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+        setMessages(recent);
+      })
+      .catch(() => {});
   }, [agentKey]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -145,46 +149,72 @@ function AgentChat({ agentKey, agentName, ticker }: { agentKey: string; agentNam
       const r = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: 'Bearer fingerthumb' },
-        body: JSON.stringify({ agent_key: agentKey, message: q, ticker, thread_id: threadId }),
+        body: JSON.stringify({ agentKey: agentKey.toLowerCase(), message: q }),
       });
       const d = await r.json();
-      setMessages(prev => [...prev, { role: 'assistant', content: d.response ?? d.error ?? '...' }]);
-      if (d.thread_id) setThreadId(d.thread_id);
+      setMessages(prev => [...prev, { role: 'assistant', content: d.reply ?? d.error ?? '...' }]);
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Error — check connection.' }]);
     } finally { setLoading(false); }
-  }, [input, loading, agentKey, ticker, threadId]);
+  }, [input, loading, agentKey]);
+
+  const prompts = [
+    `Bull case for ${ticker}?`,
+    `Key risks for ${ticker}?`,
+    `Latest earnings summary?`,
+    `Valuation vs peers?`,
+  ];
 
   return (
     <div style={{ background: G.surf, border: `1px solid ${G.b}`, borderRadius: 4, display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ padding: '10px 14px', borderBottom: `1px solid ${G.b}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontFamily: G.mono, fontSize: 11, color: G.green, letterSpacing: 2 }}>AGENT · {agentKey}</span>
+      {/* header */}
+      <div style={{ padding: '10px 14px', borderBottom: `1px solid ${G.b}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: G.surfAlt }}>
+        <span style={{ fontFamily: G.mono, fontSize: 11, color: G.green, letterSpacing: 2 }}>AGENT · {agentKey.toUpperCase()}</span>
         <span style={{ fontFamily: G.mono, fontSize: 10, color: G.muted }}>{agentName}</span>
       </div>
+      {/* quick prompts */}
       <div style={{ padding: '8px 12px', borderBottom: `1px solid ${G.b}`, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {[`Bull case for ${ticker}?`, `Key risks for ${ticker}?`, `Latest earnings summary?`, `Valuation vs peers?`].map(p => (
-          <button key={p} onClick={() => setInput(p)} style={{ fontFamily: G.mono, fontSize: 10, color: G.greenDim, background: G.greenFaint, border: `1px solid ${G.greenMuted}`, borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}>{p}</button>
+        {prompts.map(p => (
+          <button key={p} onClick={() => setInput(p)}
+            style={{ fontFamily: G.mono, fontSize: 10, color: G.greenDim, background: G.greenFaint, border: `1px solid ${G.greenMuted}`, borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}>
+            {p}
+          </button>
         ))}
       </div>
+      {/* messages */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12, minHeight: 0 }}>
-        {messages.length === 0 && <p style={{ fontFamily: G.mono, fontSize: 12, color: G.dim, textAlign: 'center', marginTop: 40 }}>Ask {agentKey} about {ticker}</p>}
+        {messages.length === 0 && (
+          <p style={{ fontFamily: G.mono, fontSize: 12, color: G.dim, textAlign: 'center', marginTop: 40 }}>
+            Ask {agentKey.toUpperCase()} about {ticker}
+          </p>
+        )}
         {messages.map((m, i) => (
           <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '92%' }}>
-            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginBottom: 3, textAlign: m.role === 'user' ? 'right' : 'left' }}>{m.role === 'user' ? 'YOU' : agentKey}</div>
-            <div style={{ background: m.role === 'user' ? G.greenFaint : G.surfAlt, border: `1px solid ${m.role === 'user' ? G.greenMuted : G.b}`, borderRadius: 4, padding: '8px 12px', fontFamily: G.mono, fontSize: 12, color: G.text, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{m.content}</div>
+            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginBottom: 3, textAlign: m.role === 'user' ? 'right' : 'left' }}>
+              {m.role === 'user' ? 'YOU' : agentKey.toUpperCase()}
+            </div>
+            <div style={{ background: m.role === 'user' ? G.greenFaint : G.surfAlt, border: `1px solid ${m.role === 'user' ? G.greenMuted : G.b}`, borderRadius: 4, padding: '8px 12px', fontFamily: G.mono, fontSize: 12, color: G.text, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+              {m.content}
+            </div>
           </div>
         ))}
         {loading && (
           <div style={{ alignSelf: 'flex-start' }}>
-            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginBottom: 3 }}>{agentKey}</div>
+            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginBottom: 3 }}>{agentKey.toUpperCase()}</div>
             <div style={{ background: G.surfAlt, border: `1px solid ${G.b}`, borderRadius: 4, padding: '8px 12px', fontFamily: G.mono, fontSize: 12, color: G.greenDim }}>▋</div>
           </div>
         )}
         <div ref={endRef} />
       </div>
+      {/* input */}
       <div style={{ padding: '10px 12px', borderTop: `1px solid ${G.b}`, display: 'flex', gap: 8 }}>
-        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()} placeholder={`Ask about ${ticker}…`}
-          style={{ flex: 1, fontFamily: G.mono, fontSize: 12, color: G.text, background: G.bg, border: `1px solid ${G.b}`, borderRadius: 3, padding: '8px 10px', outline: 'none' }} />
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
+          placeholder={`Ask about ${ticker}…`}
+          style={{ flex: 1, fontFamily: G.mono, fontSize: 12, color: G.text, background: G.bg, border: `1px solid ${G.b}`, borderRadius: 3, padding: '8px 10px', outline: 'none' }}
+        />
         <button onClick={send} disabled={loading || !input.trim()}
           style={{ fontFamily: G.mono, fontSize: 11, color: G.bg, background: loading ? G.greenMuted : G.green, border: 'none', borderRadius: 3, padding: '0 14px', cursor: loading ? 'default' : 'pointer', letterSpacing: 1 }}>
           SEND
@@ -194,43 +224,65 @@ function AgentChat({ agentKey, agentName, ticker }: { agentKey: string; agentNam
   );
 }
 
-function EstimatesPanel({ bbg }: { bbg: BloombergData }) {
-  const items = [
-    { label: 'EPS FY1E',    value: bbg.consensus_eps_fy1,  prefix: '' },
-    { label: 'EPS FY2E',    value: bbg.consensus_eps_fy2,  prefix: '' },
-    { label: 'Rev FY1E',    value: bbg.consensus_rev_fy1,  prefix: '$', suffix: 'B', divisor: 1e3 },
+// ─── EPS Revisions ───────────────────────────────────────────────────────────
+function EPSRevisionsPanel({ bbg }: { bbg: BloombergData }) {
+  const fy1 = toNum(bbg.consensus_eps_fy1);
+  const fy2 = toNum(bbg.consensus_eps_fy2);
+  const growth = fy1 && fy2 && fy1 !== 0 ? ((fy2 - fy1) / Math.abs(fy1)) * 100 : null;
+  const growthUp = growth != null && growth >= 0;
+
+  const chartData = [
+    { label: 'FY1E', value: fy1 ?? 0 },
+    { label: 'FY2E', value: fy2 ?? 0 },
   ];
+
   return (
-    <Panel title="CONSENSUS ESTIMATES" badge="Bloomberg">
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        {items.map(item => (
-          <div key={item.label} style={{ flex: '1 1 120px', background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '12px 14px' }}>
+    <Panel title="EPS REVISIONS" badge="Bloomberg Consensus">
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        {[
+          { label: 'EPS FY1E', value: fy1, prefix: '$' },
+          { label: 'EPS FY2E', value: fy2, prefix: '$' },
+          { label: 'FY1→FY2 Growth', value: growth, suffix: '%', isGrowth: true },
+        ].map(item => (
+          <div key={item.label} style={{ flex: '1 1 100px', background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '12px 14px' }}>
             <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginBottom: 6, letterSpacing: 1 }}>{item.label}</div>
-            <div style={{ fontFamily: G.mono, fontSize: 22, color: G.green, fontWeight: 700 }}>
-              {item.value == null ? '—' : item.divisor
-                ? `${item.prefix}${(item.value / item.divisor).toFixed(1)}${item.suffix}`
-                : `${item.prefix}${item.value.toFixed(2)}`}
+            <div style={{ fontFamily: G.mono, fontSize: 20, fontWeight: 700, color: item.isGrowth ? (growthUp ? G.green : G.red) : G.green }}>
+              {item.value == null ? '—' : `${item.prefix ?? ''}${item.value.toFixed(2)}${item.suffix ?? ''}`}
             </div>
           </div>
         ))}
-        {bbg.target_price_mean != null && (
-          <div style={{ flex: '1 1 120px', background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '12px 14px' }}>
-            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginBottom: 6, letterSpacing: 1 }}>PT RANGE</div>
-            <div style={{ fontFamily: G.mono, fontSize: 22, color: G.amber, fontWeight: 700 }}>{fmt(bbg.target_price_mean, 2)}</div>
-            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginTop: 3 }}>
-              {fmt(bbg.target_price_low, 2)} – {fmt(bbg.target_price_high, 2)}
-            </div>
-          </div>
-        )}
       </div>
+      {(fy1 != null || fy2 != null) && (
+        <div style={{ height: 80 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} barSize={40}>
+              <CartesianGrid strokeDasharray="2 4" stroke={G.b} vertical={false} />
+              <XAxis dataKey="label" tick={{ fontFamily: G.mono, fontSize: 10, fill: G.muted }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontFamily: G.mono, fontSize: 10, fill: G.muted }} axisLine={false} tickLine={false} width={40} />
+              <Tooltip
+                contentStyle={{ background: G.surf, border: `1px solid ${G.b}`, fontFamily: G.mono, fontSize: 11 }}
+                labelStyle={{ color: G.green }}
+                itemStyle={{ color: G.text }}
+                formatter={(v: unknown) => [`$${(v as number).toFixed(2)}`, 'EPS']}
+              />
+              <Bar dataKey="value" radius={[3, 3, 0, 0]}>
+                {chartData.map((_, idx) => (
+                  <Cell key={idx} fill={idx === 1 ? G.greenDim : G.green} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </Panel>
   );
 }
 
+// ─── Analyst Ratings ─────────────────────────────────────────────────────────
 function AnalystRatings({ bbg }: { bbg: BloombergData }) {
-  const buy  = bbg.buy_count  ?? 0;
-  const hold = bbg.hold_count ?? 0;
-  const sell = bbg.sell_count ?? 0;
+  const buy  = toNum(bbg.buy_count)  ?? 0;
+  const hold = toNum(bbg.hold_count) ?? 0;
+  const sell = toNum(bbg.sell_count) ?? 0;
   const total = buy + hold + sell;
   if (total === 0) return null;
   const pct = (n: number) => `${Math.round(n / total * 100)}%`;
@@ -238,9 +290,9 @@ function AnalystRatings({ bbg }: { bbg: BloombergData }) {
   return (
     <Panel title="ANALYST RATINGS" badge="Bloomberg">
       <div style={{ display: 'flex', gap: 20, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
-        {[['BUY', G.green, buy], ['HOLD', G.amber, hold], ['SELL', G.red, sell]].map(([label, col, n]) => (
-          <div key={label as string} style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: G.mono, fontSize: 32, color: col as string, fontWeight: 700 }}>{n as number}</div>
+        {([['BUY', G.green, buy], ['HOLD', G.amber, hold], ['SELL', G.red, sell]] as [string, string, number][]).map(([label, col, n]) => (
+          <div key={label} style={{ textAlign: 'center' }}>
+            <div style={{ fontFamily: G.mono, fontSize: 32, color: col, fontWeight: 700 }}>{n}</div>
             <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, letterSpacing: 1 }}>{label}</div>
           </div>
         ))}
@@ -260,14 +312,46 @@ function AnalystRatings({ bbg }: { bbg: BloombergData }) {
         <div style={{ width: barW(sell), background: G.red,   transition: 'width 0.5s' }} />
       </div>
       <div style={{ display: 'flex', gap: 12, marginTop: 6 }}>
-        {[['BUY', G.green, buy], ['HOLD', G.amber, hold], ['SELL', G.red, sell]].map(([label, col, n]) => (
-          <span key={label as string} style={{ fontFamily: G.mono, fontSize: 10, color: col as string }}>{pct(n as number)} {label}</span>
+        {([['BUY', G.green, buy], ['HOLD', G.amber, hold], ['SELL', G.red, sell]] as [string, string, number][]).map(([label, col, n]) => (
+          <span key={label} style={{ fontFamily: G.mono, fontSize: 10, color: col }}>{pct(n)} {label}</span>
         ))}
       </div>
     </Panel>
   );
 }
 
+// ─── Financials ───────────────────────────────────────────────────────────────
+function FinancialsPanel({ bbg }: { bbg: BloombergData }) {
+  const revFy1 = toNum(bbg.consensus_rev_fy1); // Bloomberg returns in $M
+  const mktCap = toNum(bbg.market_cap);         // Bloomberg CUR_MKT_CAP in $M
+  const eps1   = toNum(bbg.consensus_eps_fy1);
+  const eps2   = toNum(bbg.consensus_eps_fy2);
+
+  const rows = [
+    { label: 'Revenue FY1E',   value: revFy1 != null ? `$${(revFy1 / 1e3).toFixed(1)}B` : '—',       note: 'Consensus estimate' },
+    { label: 'Market Cap',     value: mktCap != null ? `$${(mktCap / 1e3).toFixed(1)}B` : '—',        note: 'Bloomberg CUR_MKT_CAP' },
+    { label: 'EPS FY1E',       value: eps1 != null ? `$${eps1.toFixed(2)}` : '—',                     note: 'Consensus EPS' },
+    { label: 'EPS FY2E',       value: eps2 != null ? `$${eps2.toFixed(2)}` : '—',                     note: 'Next year consensus' },
+    { label: 'Dividend Yield', value: fmt(bbg.dividend_yield, 2, '%'),                                note: 'Indicated yield' },
+    { label: 'YTD Return',     value: toNum(bbg.ytd_return) != null ? `${toNum(bbg.ytd_return)!.toFixed(1)}%` : '—', note: 'Year-to-date' },
+  ];
+
+  return (
+    <Panel title="FINANCIALS" badge="Bloomberg">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+        {rows.map(r => (
+          <div key={r.label} style={{ background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '10px 14px' }}>
+            <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginBottom: 4, letterSpacing: 1 }}>{r.label}</div>
+            <div style={{ fontFamily: G.mono, fontSize: 18, color: G.text, fontWeight: 700 }}>{r.value}</div>
+            <div style={{ fontFamily: G.mono, fontSize: 9, color: G.dim, marginTop: 3 }}>{r.note}</div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+// ─── Valuation ───────────────────────────────────────────────────────────────
 function ValuationPanel({ bbg }: { bbg: BloombergData }) {
   const rows = [
     { label: 'Fwd P/E',   value: toNum(bbg.fwd_pe),   color: G.green },
@@ -275,7 +359,7 @@ function ValuationPanel({ bbg }: { bbg: BloombergData }) {
   ].filter(r => r.value != null);
   if (rows.length === 0) return null;
   const rawMax = Math.max(...rows.map(r => r.value!)) * 1.25;
-  const maxVal = Math.ceil(rawMax / 5) * 5; // round up to nearest 5
+  const maxVal = Math.ceil(rawMax / 5) * 5;
   return (
     <Panel title="VALUATION MULTIPLES" badge="Bloomberg">
       <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -285,21 +369,28 @@ function ValuationPanel({ bbg }: { bbg: BloombergData }) {
             <div style={{ fontFamily: G.mono, fontSize: 26, color: r.color, fontWeight: 700 }}>{r.value!.toFixed(1)}x</div>
           </div>
         ))}
-        {bbg.short_interest_ratio != null && (
+        {toNum(bbg.short_interest_ratio) != null && (
           <div style={{ flex: '1 1 120px', background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '12px 14px' }}>
             <div style={{ fontFamily: G.mono, fontSize: 10, color: G.muted, marginBottom: 4, letterSpacing: 1 }}>SHORT INT RATIO</div>
-            <div style={{ fontFamily: G.mono, fontSize: 26, color: G.amber, fontWeight: 700 }}>{bbg.short_interest_ratio.toFixed(1)}x</div>
+            <div style={{ fontFamily: G.mono, fontSize: 26, color: G.amber, fontWeight: 700 }}>{toNum(bbg.short_interest_ratio)!.toFixed(1)}x</div>
           </div>
         )}
       </div>
-      <div style={{ height: 100 }}>
+      <div style={{ height: 90 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={rows.map(r => ({ name: r.label, value: r.value }))} layout="vertical">
+          <BarChart data={rows.map(r => ({ name: r.label, value: r.value, color: r.color }))} layout="vertical">
             <CartesianGrid strokeDasharray="2 4" stroke={G.b} horizontal={false} />
             <XAxis type="number" domain={[0, maxVal]} tick={{ fontFamily: G.mono, fontSize: 10, fill: G.muted }} axisLine={false} tickLine={false} />
             <YAxis type="category" dataKey="name" tick={{ fontFamily: G.mono, fontSize: 10, fill: G.muted }} axisLine={false} tickLine={false} width={72} />
-            <Tooltip contentStyle={{ background: G.surf, border: `1px solid ${G.b}`, fontFamily: G.mono, fontSize: 11 }} labelStyle={{ color: G.green }} itemStyle={{ color: G.text }} formatter={(v: unknown) => [`${(v as number).toFixed(1)}x`, '']} />
-            <Bar dataKey="value" fill={G.green} radius={[0, 3, 3, 0]} />
+            <Tooltip
+              contentStyle={{ background: G.surf, border: `1px solid ${G.b}`, fontFamily: G.mono, fontSize: 11 }}
+              labelStyle={{ color: G.green }}
+              itemStyle={{ color: G.text }}
+              formatter={(v: unknown) => [`${(v as number).toFixed(1)}x`, '']}
+            />
+            <Bar dataKey="value" radius={[0, 3, 3, 0]}>
+              {rows.map((r, idx) => <Cell key={idx} fill={r.color} />)}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -307,6 +398,7 @@ function ValuationPanel({ bbg }: { bbg: BloombergData }) {
   );
 }
 
+// ─── 52W Price Range ──────────────────────────────────────────────────────────
 function RangeBar({ label, low, high, current }: { label: string; low: number; high: number; current: number | null }) {
   const range = high - low;
   const posPct = current != null && range > 0 ? ((current - low) / range * 100).toFixed(1) : null;
@@ -332,25 +424,58 @@ function RangeBar({ label, low, high, current }: { label: string; low: number; h
 }
 
 function PriceRangePanel({ bbg, livePrice }: { bbg: BloombergData; livePrice: number | null }) {
-  const price = livePrice ?? bbg.px_last;
-  if (!bbg.high_52w || !bbg.low_52w) return null;
+  const price = livePrice ?? toNum(bbg.px_last);
+  const high = toNum(bbg.high_52w);
+  const low  = toNum(bbg.low_52w);
+  if (!high || !low) return null;
   return (
     <Panel title="52-WEEK RANGE" badge="Bloomberg">
-      <RangeBar label="52W Price Range" low={bbg.low_52w} high={bbg.high_52w} current={price} />
+      <RangeBar label="52W Price Range" low={low} high={high} current={price} />
+      {bbg.target_price_mean != null && bbg.target_price_low != null && bbg.target_price_high != null && (
+        <RangeBar
+          label="Analyst Target Range"
+          low={toNum(bbg.target_price_low)!}
+          high={toNum(bbg.target_price_high)!}
+          current={toNum(bbg.target_price_mean)}
+        />
+      )}
     </Panel>
   );
 }
 
-// ─── main page ────────────────────────────────────────────────────────────────
+// ─── News placeholder ─────────────────────────────────────────────────────────
+function NewsPanel({ ticker, agentKey }: { ticker: string; agentKey: string }) {
+  return (
+    <Panel title="NEWS & CATALYSTS" badge="Agent Intelligence">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {[
+          'Ask the agent for the latest news and catalysts for this stock.',
+          `Try: "What are the key catalysts for ${ticker} in the next 3 months?"`,
+          `Or: "What has ${ticker} reported most recently?"`,
+        ].map((text, i) => (
+          <div key={i} style={{ background: G.bg, border: `1px solid ${G.b}`, borderRadius: 4, padding: '10px 14px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <span style={{ fontFamily: G.mono, fontSize: 12, color: G.greenMuted, flexShrink: 0, marginTop: 1 }}>▸</span>
+            <span style={{ fontFamily: G.mono, fontSize: 12, color: i === 0 ? G.muted : G.greenDim, lineHeight: 1.5 }}>{text}</span>
+          </div>
+        ))}
+        <div style={{ marginTop: 4, fontFamily: G.mono, fontSize: 10, color: G.dim }}>
+          Live news integration powered by {agentKey.toUpperCase()} · Use the chat panel to query recent developments
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AnalyticsPage() {
-  const [ticker, setTicker]           = useState('NVDA');
-  const [inputVal, setInputVal]       = useState('NVDA');
-  const [bbg, setBbg]                 = useState<BloombergData | null>(null);
+  const [ticker, setTicker]             = useState('NVDA');
+  const [inputVal, setInputVal]         = useState('NVDA');
+  const [bbg, setBbg]                   = useState<BloombergData | null>(null);
   const [allCompanies, setAllCompanies] = useState<CompanyInfo[]>([]);
-  const [company, setCompany]         = useState<CompanyInfo | null>(null);
-  const [livePrice, setLivePrice]     = useState<number | null>(null);
-  const [loading, setLoading]         = useState(false);
-  const [notFound, setNotFound]       = useState(false);
+  const [company, setCompany]           = useState<CompanyInfo | null>(null);
+  const [livePrice, setLivePrice]       = useState<number | null>(null);
+  const [loading, setLoading]           = useState(false);
+  const [notFound, setNotFound]         = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -358,7 +483,7 @@ export default function AnalyticsPage() {
   useEffect(() => {
     fetch('/api/companies', { headers: { authorization: 'Bearer fingerthumb' } })
       .then(r => r.json())
-      .then((data: CompanyInfo[]) => setAllCompanies(data))
+      .then((data: CompanyInfo[]) => setAllCompanies(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, []);
 
@@ -378,26 +503,27 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     if (!ticker) return;
-    setLoading(true); setBbg(null); setCompany(null); setLivePrice(null); setNotFound(false);
+    setLoading(true); setBbg(null); setLivePrice(null); setNotFound(false);
     Promise.all([
       fetch(`/api/bloomberg?ticker=${ticker}`).then(r => r.json()),
       fetch(`/api/price?tickers=${ticker}`).then(r => r.json()).catch(() => ({})),
     ]).then(([bbgData, priceData]) => {
-      if (bbgData) {
+      if (bbgData && !bbgData.error) {
         for (const f of numFields) {
           if (bbgData[f] != null) bbgData[f] = toNum(bbgData[f]);
         }
+        setBbg(bbgData);
+        setNotFound(false);
+      } else {
+        setBbg(null);
+        setNotFound(true);
       }
-      setBbg(bbgData ?? null);
-      setNotFound(!bbgData);
-      const co = allCompanies.find(c => c.ticker === ticker);
-      setCompany(co ?? null);
       const q = priceData?.[ticker];
       if (q?.regularMarketPrice) setLivePrice(q.regularMarketPrice);
     }).finally(() => setLoading(false));
   }, [ticker]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Also update company when allCompanies loads
+  // Update company when allCompanies loads or ticker changes
   useEffect(() => {
     if (allCompanies.length > 0 && ticker) {
       setCompany(allCompanies.find(c => c.ticker === ticker) ?? null);
@@ -405,24 +531,26 @@ export default function AnalyticsPage() {
   }, [allCompanies, ticker]);
 
   const selectTicker = (t: string) => {
-    setTicker(t); setInputVal(t); setShowDropdown(false);
+    const clean = t.trim().toUpperCase();
+    setTicker(clean); setInputVal(clean); setShowDropdown(false);
   };
 
   const filtered = inputVal.length >= 1
     ? allCompanies.filter(c =>
         c.ticker.startsWith(inputVal.toUpperCase()) ||
         c.name.toLowerCase().includes(inputVal.toLowerCase())
-      ).slice(0, 8)
+      ).slice(0, 10)
     : [];
 
-  const agentKey  = company?.agent_key  ?? 'APEX';
-  const agentName = company?.agent_name ?? 'Asia Pacific';
+  const agentKey  = company?.agent_key  ?? 'apex';
+  const agentName = company?.agent_name ?? 'Kabuten';
 
   return (
     <div style={{ minHeight: '100vh', background: G.bg, color: G.text, fontFamily: G.mono }}>
-      {/* top bar */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 50, background: G.bg, borderBottom: `1px solid ${G.b}`, padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 13, color: G.green, letterSpacing: 3, fontWeight: 700 }}>ANALYTICS</span>
+
+      {/* ── sticky top bar ── */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 50, background: G.bg, borderBottom: `1px solid ${G.b}`, padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontSize: 13, color: G.green, letterSpacing: 3, fontWeight: 700, flexShrink: 0 }}>ANALYTICS</span>
 
         {/* search with autocomplete */}
         <div ref={searchRef} style={{ position: 'relative' }}>
@@ -431,21 +559,21 @@ export default function AnalyticsPage() {
               value={inputVal}
               onChange={e => { setInputVal(e.target.value.toUpperCase()); setShowDropdown(true); }}
               onKeyDown={e => {
-                if (e.key === 'Enter') { selectTicker(inputVal.trim().toUpperCase()); }
+                if (e.key === 'Enter') { selectTicker(inputVal); }
                 if (e.key === 'Escape') setShowDropdown(false);
               }}
               onFocus={() => setShowDropdown(true)}
-              placeholder="SEARCH TICKER OR NAME"
-              style={{ fontFamily: G.mono, fontSize: 12, color: G.green, background: G.surf, border: `1px solid ${G.bBright}`, borderRight: 'none', borderRadius: '3px 0 0 3px', padding: '6px 10px', width: 220, outline: 'none', letterSpacing: 1 }}
+              placeholder="SEARCH TICKER OR COMPANY"
+              style={{ fontFamily: G.mono, fontSize: 12, color: G.green, background: G.surf, border: `1px solid ${G.bBright}`, borderRight: 'none', borderRadius: '3px 0 0 3px', padding: '6px 10px', width: 240, outline: 'none', letterSpacing: 1 }}
             />
-            <button onClick={() => selectTicker(inputVal.trim().toUpperCase())}
+            <button onClick={() => selectTicker(inputVal)}
               style={{ fontFamily: G.mono, fontSize: 11, color: G.bg, background: G.green, border: 'none', borderRadius: '0 3px 3px 0', padding: '0 14px', cursor: 'pointer', letterSpacing: 1 }}>
               LOAD
             </button>
           </div>
-          {/* dropdown */}
+          {/* autocomplete dropdown */}
           {showDropdown && filtered.length > 0 && (
-            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: G.surf, border: `1px solid ${G.bBright}`, borderTop: 'none', borderRadius: '0 0 4px 4px', zIndex: 100, maxHeight: 280, overflowY: 'auto' }}>
+            <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '100%', background: G.surf, border: `1px solid ${G.bBright}`, borderTop: 'none', borderRadius: '0 0 4px 4px', zIndex: 100, maxHeight: 320, overflowY: 'auto' }}>
               {filtered.map(c => (
                 <div key={c.ticker} onMouseDown={() => selectTicker(c.ticker)}
                   style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: `1px solid ${G.b}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
@@ -455,60 +583,67 @@ export default function AnalyticsPage() {
                     <span style={{ fontFamily: G.mono, fontSize: 12, color: G.green, fontWeight: 700 }}>{c.ticker}</span>
                     <span style={{ fontFamily: G.mono, fontSize: 11, color: G.muted, marginLeft: 10 }}>{c.name}</span>
                   </div>
-                  <span style={{ fontFamily: G.mono, fontSize: 10, color: G.dim }}>{c.agent_key}</span>
+                  <span style={{ fontFamily: G.mono, fontSize: 10, color: G.dim, marginLeft: 8 }}>{c.agent_key?.toUpperCase()}</span>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* quick chips */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {QUICK.map(t => (
-            <button key={t} onClick={() => selectTicker(t)}
-              style={{ fontFamily: G.mono, fontSize: 11, letterSpacing: 1, color: t === ticker ? G.bg : G.greenDim, background: t === ticker ? G.green : G.greenFaint, border: `1px solid ${t === ticker ? G.green : G.greenMuted}`, borderRadius: 3, padding: '3px 10px', cursor: 'pointer' }}>
-              {t}
-            </button>
-          ))}
-        </div>
         {loading && <span style={{ fontFamily: G.mono, fontSize: 11, color: G.muted }}>Loading…</span>}
+        {company && !loading && (
+          <span style={{ fontFamily: G.mono, fontSize: 11, color: G.muted }}>
+            via <span style={{ color: G.greenDim }}>{agentKey.toUpperCase()}</span>
+          </span>
+        )}
       </div>
 
-      {/* body */}
+      {/* ── body ── */}
       <div style={{ padding: '20px 24px', maxWidth: 1400, margin: '0 auto' }}>
+
         {notFound && !loading ? (
           <div style={{ textAlign: 'center', paddingTop: 80 }}>
             <p style={{ fontFamily: G.mono, fontSize: 14, color: G.muted }}>
               No Bloomberg data for <span style={{ color: G.green }}>{ticker}</span>
             </p>
             <p style={{ fontFamily: G.mono, fontSize: 12, color: G.dim, marginTop: 8 }}>
-              Run bloomberg-sync.py to populate data for this ticker, or check the bbg_ticker in seed.json.
+              Check that this ticker is in your coverage universe and bloomberg-sync.py has run.
             </p>
           </div>
         ) : bbg ? (
           <>
+            {/* Headline bar */}
             <HeadlineBox bbg={bbg} company={company} ticker={ticker} livePrice={livePrice} />
 
+            {/* Two-column layout */}
             <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-              {/* left: sticky agent chat */}
+
+              {/* Left: sticky agent chat */}
               <div style={{ width: 360, flexShrink: 0, position: 'sticky', top: 60, height: 'calc(100vh - 80px)' }}>
                 <AgentChat agentKey={agentKey} agentName={agentName} ticker={ticker} />
               </div>
 
-              {/* right: analysis stack */}
+              {/* Right: analysis stack */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <EstimatesPanel bbg={bbg} />
+                <EPSRevisionsPanel bbg={bbg} />
                 <AnalystRatings bbg={bbg} />
+                <FinancialsPanel bbg={bbg} />
                 <ValuationPanel bbg={bbg} />
                 <PriceRangePanel bbg={bbg} livePrice={livePrice} />
+                <NewsPanel ticker={ticker} agentKey={agentKey} />
               </div>
             </div>
           </>
         ) : !loading ? (
           <div style={{ textAlign: 'center', paddingTop: 80 }}>
-            <p style={{ fontFamily: G.mono, fontSize: 14, color: G.muted }}>Enter a ticker to load Bloomberg data</p>
+            <p style={{ fontFamily: G.mono, fontSize: 14, color: G.muted }}>Enter a ticker above to load Bloomberg data</p>
+            <p style={{ fontFamily: G.mono, fontSize: 12, color: G.dim, marginTop: 8 }}>252 companies covered across 25 agents</p>
           </div>
-        ) : null}
+        ) : (
+          <div style={{ textAlign: 'center', paddingTop: 80 }}>
+            <p style={{ fontFamily: G.mono, fontSize: 12, color: G.muted }}>Loading…</p>
+          </div>
+        )}
       </div>
     </div>
   );
