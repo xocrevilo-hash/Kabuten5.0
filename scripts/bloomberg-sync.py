@@ -4,27 +4,25 @@ Kabuten 5.0 — Bloomberg Data Sync Script
 =========================================
 Runs on OC's local machine (Bloomberg Terminal must be running and logged in).
 Connects to Bloomberg Desktop API via blpapi on localhost:8194.
-Pulls financial data for all ~230 covered companies.
+Pulls financial data for all ~252 covered companies.
 Upserts into the Neon Postgres bloomberg_data table.
+Also appends a weekly snapshot row to valuation_history.
 
 Requirements:
     pip install blpapi psycopg2-binary python-dotenv
 
 Schedule:
-    Run daily at 01:30 JST (before APAC sweep window at 02:00 JST).
-    Mac (crontab -e):  30 1 * * 1-5 cd /path/to/kabuten5 && python scripts/bloomberg-sync.py
-    Windows (Task Scheduler): Configure task for 01:30 JST weekdays
+    Windows Task Scheduler: Monday 08:30 local time (bloomberg-sync.ps1)
 
 Usage:
-    export DATABASE_URL=postgresql://...   # or add to .env.local
+    set DATABASE_URL=postgresql://...
     python scripts/bloomberg-sync.py
 """
 
 import os
 import sys
-import json
 import logging
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 
 try:
     import psycopg2
@@ -40,11 +38,10 @@ except ImportError:
 # Try loading .env.local
 try:
     from dotenv import load_dotenv
-    # Look for .env.local in the parent directory (project root)
     env_path = os.path.join(os.path.dirname(__file__), '..', '.env.local')
     load_dotenv(env_path)
 except ImportError:
-    pass  # dotenv optional, use system env
+    pass  # dotenv optional
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,49 +50,96 @@ logging.basicConfig(
 )
 log = logging.getLogger('bloomberg-sync')
 
-# Bloomberg fields to pull
-FIELDS = [
+# ── Bloomberg fields ────────────────────────────────────────────────────────
+# Original 19 fields
+FIELDS_CORE = [
     "PX_LAST",                   # Last price
     "BEST_PE_RATIO",             # Forward P/E
     "BEST_EV_TO_BEST_EBITDA",    # EV/EBITDA (forward)
-    "BEST_EPS",                  # Consensus EPS (current FY)
-    "BEST_EPS_NXT_YR",           # Consensus EPS (next FY)
-    "BEST_SALES",                # Consensus revenue (current FY)
+    "BEST_EPS",                  # Consensus EPS FY1
+    "BEST_EPS_NXT_YR",           # Consensus EPS FY2
+    "BEST_SALES",                # Consensus revenue FY1 ($M)
     "BEST_TARGET_PRICE",         # Analyst target price (mean)
     "BEST_TARGET_HI",            # Target price (high)
     "BEST_TARGET_LO",            # Target price (low)
-    "TOT_BUY_REC",               # Buy recommendations count
-    "TOT_HOLD_REC",              # Hold recommendations count
-    "TOT_SELL_REC",              # Sell recommendations count
+    "TOT_BUY_REC",               # Buy recommendations
+    "TOT_HOLD_REC",              # Hold recommendations
+    "TOT_SELL_REC",              # Sell recommendations
     "SHORT_INT_RATIO",           # Short interest ratio
     "EXPECTED_REPORT_DATE",      # Next earnings date
     "HIGH_52WEEK",               # 52-week high
     "LOW_52WEEK",                # 52-week low
     "YTD_RETURN",                # YTD return %
     "EQY_DVD_YLD_IND",           # Dividend yield
-    "CUR_MKT_CAP",               # Market cap (replaces Yahoo Finance)
+    "CUR_MKT_CAP",               # Market cap ($M)
 ]
 
+# Expanded fields — earnings actuals + revision momentum
+FIELDS_EXPANDED = [
+    # Last reported earnings actuals
+    "IS_EPS",                    # Reported EPS (last fiscal year, GAAP)
+    "SALES_REV_TURN",            # Reported revenue last FY ($M)
+    "EARN_EPS_SURP_PCT",         # EPS surprise % vs consensus
+    "EARN_REV_SURP_PCT",         # Revenue surprise % vs consensus
+    "EARN_ANN_DT",               # Last earnings announcement date
+    # EPS revision momentum (key for Earnings Momentum function)
+    "BEST_EPS_1M_REVISION",      # Consensus EPS 1-month change %
+    "BEST_EPS_3M_REVISION",      # Consensus EPS 3-month change %
+    "BEST_SALES_1M_REVISION",    # Consensus sales 1-month change %
+    "BEST_SALES_3M_REVISION",    # Consensus sales 3-month change %
+    "BEST_NUM_EST_UP_EPS_1M",    # # analysts revised EPS up last month
+    "BEST_NUM_EST_DOWN_EPS_1M",  # # analysts revised EPS down last month
+    "BEST_EPS_NTM",              # NTM consensus EPS
+    # Guidance
+    "IS_EPS_GUIDANCE_HIGH",      # Company EPS guidance high (US names)
+    "IS_EPS_GUIDANCE_LOW",       # Company EPS guidance low (US names)
+]
+
+FIELDS = FIELDS_CORE + FIELDS_EXPANDED
+
+# Date fields that need special parsing
+DATE_FIELDS = {"EXPECTED_REPORT_DATE", "EARN_ANN_DT"}
+
+# Integer fields
+INT_FIELDS = {"TOT_BUY_REC", "TOT_HOLD_REC", "TOT_SELL_REC",
+              "BEST_NUM_EST_UP_EPS_1M", "BEST_NUM_EST_DOWN_EPS_1M"}
+
 DB_COLUMN_MAP = {
-    "PX_LAST": "px_last",
-    "BEST_PE_RATIO": "fwd_pe",
-    "BEST_EV_TO_BEST_EBITDA": "ev_ebitda",
-    "BEST_EPS": "consensus_eps_fy1",
-    "BEST_EPS_NXT_YR": "consensus_eps_fy2",
-    "BEST_SALES": "consensus_rev_fy1",
-    "BEST_TARGET_PRICE": "target_price_mean",
-    "BEST_TARGET_HI": "target_price_high",
-    "BEST_TARGET_LO": "target_price_low",
-    "TOT_BUY_REC": "buy_count",
-    "TOT_HOLD_REC": "hold_count",
-    "TOT_SELL_REC": "sell_count",
-    "SHORT_INT_RATIO": "short_interest_ratio",
-    "EXPECTED_REPORT_DATE": "next_earnings_date",
-    "HIGH_52WEEK": "high_52w",
-    "LOW_52WEEK": "low_52w",
-    "YTD_RETURN": "ytd_return",
-    "EQY_DVD_YLD_IND": "dividend_yield",
-    "CUR_MKT_CAP": "market_cap",
+    # Core fields
+    "PX_LAST":                  "px_last",
+    "BEST_PE_RATIO":            "fwd_pe",
+    "BEST_EV_TO_BEST_EBITDA":   "ev_ebitda",
+    "BEST_EPS":                 "consensus_eps_fy1",
+    "BEST_EPS_NXT_YR":          "consensus_eps_fy2",
+    "BEST_SALES":               "consensus_rev_fy1",
+    "BEST_TARGET_PRICE":        "target_price_mean",
+    "BEST_TARGET_HI":           "target_price_high",
+    "BEST_TARGET_LO":           "target_price_low",
+    "TOT_BUY_REC":              "buy_count",
+    "TOT_HOLD_REC":             "hold_count",
+    "TOT_SELL_REC":             "sell_count",
+    "SHORT_INT_RATIO":          "short_interest_ratio",
+    "EXPECTED_REPORT_DATE":     "next_earnings_date",
+    "HIGH_52WEEK":              "high_52w",
+    "LOW_52WEEK":               "low_52w",
+    "YTD_RETURN":               "ytd_return",
+    "EQY_DVD_YLD_IND":          "dividend_yield",
+    "CUR_MKT_CAP":              "market_cap",
+    # Expanded fields
+    "IS_EPS":                   "actual_eps_last",
+    "SALES_REV_TURN":           "actual_rev_last",
+    "EARN_EPS_SURP_PCT":        "eps_surprise_pct",
+    "EARN_REV_SURP_PCT":        "rev_surprise_pct",
+    "EARN_ANN_DT":              "last_report_date",
+    "BEST_EPS_1M_REVISION":     "eps_rev_1m",
+    "BEST_EPS_3M_REVISION":     "eps_rev_3m",
+    "BEST_SALES_1M_REVISION":   "rev_rev_1m",
+    "BEST_SALES_3M_REVISION":   "rev_rev_3m",
+    "BEST_NUM_EST_UP_EPS_1M":   "est_up_1m",
+    "BEST_NUM_EST_DOWN_EPS_1M": "est_down_1m",
+    "BEST_EPS_NTM":             "best_eps_ntm",
+    "IS_EPS_GUIDANCE_HIGH":     "guidance_eps_hi",
+    "IS_EPS_GUIDANCE_LOW":      "guidance_eps_lo",
 }
 
 
@@ -120,7 +164,7 @@ def load_companies(conn):
     return rows
 
 
-def fetch_bloomberg_data(bbg_tickers: list[str]) -> dict:
+def fetch_bloomberg_data(bbg_tickers: list) -> dict:
     """
     Connect to Bloomberg API and pull reference data for all tickers.
     Returns dict: { bbg_ticker: { field: value, ... } }
@@ -140,11 +184,8 @@ def fetch_bloomberg_data(bbg_tickers: list[str]) -> dict:
     ref_data_service = session.getService("//blp/refdata")
     request = ref_data_service.createRequest("ReferenceDataRequest")
 
-    # Add all tickers
     for ticker in bbg_tickers:
         request.getElement("securities").appendValue(ticker)
-
-    # Add all fields
     for field in FIELDS:
         request.getElement("fields").appendValue(field)
 
@@ -173,19 +214,22 @@ def fetch_bloomberg_data(bbg_tickers: list[str]) -> dict:
                             elem = field_data.getElement(field)
                             if elem.isNull():
                                 row[field] = None
+                            elif field in DATE_FIELDS:
+                                try:
+                                    d = elem.getValueAsDatetime()
+                                    row[field] = date(d.year, d.month, d.day).isoformat()
+                                except Exception:
+                                    row[field] = None
+                            elif field in INT_FIELDS:
+                                try:
+                                    row[field] = int(elem.getValueAsFloat())
+                                except Exception:
+                                    row[field] = None
                             else:
-                                # Handle date fields
-                                if field == "EXPECTED_REPORT_DATE":
-                                    try:
-                                        d = elem.getValueAsDatetime()
-                                        row[field] = date(d.year, d.month, d.day).isoformat()
-                                    except Exception:
-                                        row[field] = None
-                                else:
-                                    try:
-                                        row[field] = elem.getValueAsFloat()
-                                    except Exception:
-                                        row[field] = None
+                                try:
+                                    row[field] = elem.getValueAsFloat()
+                                except Exception:
+                                    row[field] = None
                         else:
                             row[field] = None
 
@@ -200,8 +244,8 @@ def fetch_bloomberg_data(bbg_tickers: list[str]) -> dict:
 
 
 def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
-    """Upsert bloomberg data into the bloomberg_data table."""
-    now = datetime.utcnow().isoformat()
+    """Upsert bloomberg data into the bloomberg_data table (all 33 fields)."""
+    now = datetime.now(timezone.utc).isoformat()
     success_count = 0
     error_count = 0
 
@@ -216,33 +260,40 @@ def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
 
             row = bloomberg_results[bbg_ticker]
 
-            # Build upsert values
-            values = {
-                'ticker': ticker,
-                'bbg_ticker': bbg_ticker,
-                'updated_at': now,
-            }
+            values = {'ticker': ticker, 'bbg_ticker': bbg_ticker, 'updated_at': now}
             for field, col in DB_COLUMN_MAP.items():
                 values[col] = row.get(field)
 
             try:
                 cur.execute("""
                     INSERT INTO bloomberg_data (
-                        ticker, bbg_ticker, px_last, fwd_pe, ev_ebitda,
+                        ticker, bbg_ticker,
+                        px_last, fwd_pe, ev_ebitda,
                         consensus_eps_fy1, consensus_eps_fy2, consensus_rev_fy1,
                         target_price_mean, target_price_high, target_price_low,
                         buy_count, hold_count, sell_count,
                         short_interest_ratio, next_earnings_date,
-                        high_52w, low_52w, ytd_return, dividend_yield,
-                        market_cap, updated_at
+                        high_52w, low_52w, ytd_return, dividend_yield, market_cap,
+                        actual_eps_last, actual_rev_last,
+                        eps_surprise_pct, rev_surprise_pct, last_report_date,
+                        eps_rev_1m, eps_rev_3m, rev_rev_1m, rev_rev_3m,
+                        est_up_1m, est_down_1m, best_eps_ntm,
+                        guidance_eps_hi, guidance_eps_lo,
+                        updated_at
                     ) VALUES (
-                        %(ticker)s, %(bbg_ticker)s, %(px_last)s, %(fwd_pe)s, %(ev_ebitda)s,
+                        %(ticker)s, %(bbg_ticker)s,
+                        %(px_last)s, %(fwd_pe)s, %(ev_ebitda)s,
                         %(consensus_eps_fy1)s, %(consensus_eps_fy2)s, %(consensus_rev_fy1)s,
                         %(target_price_mean)s, %(target_price_high)s, %(target_price_low)s,
                         %(buy_count)s, %(hold_count)s, %(sell_count)s,
                         %(short_interest_ratio)s, %(next_earnings_date)s,
-                        %(high_52w)s, %(low_52w)s, %(ytd_return)s, %(dividend_yield)s,
-                        %(market_cap)s, %(updated_at)s
+                        %(high_52w)s, %(low_52w)s, %(ytd_return)s, %(dividend_yield)s, %(market_cap)s,
+                        %(actual_eps_last)s, %(actual_rev_last)s,
+                        %(eps_surprise_pct)s, %(rev_surprise_pct)s, %(last_report_date)s,
+                        %(eps_rev_1m)s, %(eps_rev_3m)s, %(rev_rev_1m)s, %(rev_rev_3m)s,
+                        %(est_up_1m)s, %(est_down_1m)s, %(best_eps_ntm)s,
+                        %(guidance_eps_hi)s, %(guidance_eps_lo)s,
+                        %(updated_at)s
                     )
                     ON CONFLICT (ticker) DO UPDATE SET
                         bbg_ticker = EXCLUDED.bbg_ticker,
@@ -265,6 +316,20 @@ def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
                         ytd_return = EXCLUDED.ytd_return,
                         dividend_yield = EXCLUDED.dividend_yield,
                         market_cap = EXCLUDED.market_cap,
+                        actual_eps_last = EXCLUDED.actual_eps_last,
+                        actual_rev_last = EXCLUDED.actual_rev_last,
+                        eps_surprise_pct = EXCLUDED.eps_surprise_pct,
+                        rev_surprise_pct = EXCLUDED.rev_surprise_pct,
+                        last_report_date = EXCLUDED.last_report_date,
+                        eps_rev_1m = EXCLUDED.eps_rev_1m,
+                        eps_rev_3m = EXCLUDED.eps_rev_3m,
+                        rev_rev_1m = EXCLUDED.rev_rev_1m,
+                        rev_rev_3m = EXCLUDED.rev_rev_3m,
+                        est_up_1m = EXCLUDED.est_up_1m,
+                        est_down_1m = EXCLUDED.est_down_1m,
+                        best_eps_ntm = EXCLUDED.best_eps_ntm,
+                        guidance_eps_hi = EXCLUDED.guidance_eps_hi,
+                        guidance_eps_lo = EXCLUDED.guidance_eps_lo,
                         updated_at = EXCLUDED.updated_at
                 """, values)
                 success_count += 1
@@ -278,11 +343,59 @@ def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
     return success_count, error_count
 
 
+def upsert_valuation_history(conn, companies: list, bloomberg_results: dict):
+    """
+    Append today's valuation snapshot to valuation_history.
+    Upserts by (ticker, snapshot_date) so re-running same day is safe.
+    """
+    today = date.today().isoformat()
+    inserted = 0
+
+    with conn.cursor() as cur:
+        for company in companies:
+            ticker = company['ticker']
+            bbg_ticker = company['bbg_ticker']
+
+            if bbg_ticker not in bloomberg_results:
+                continue
+
+            row = bloomberg_results[bbg_ticker]
+            fwd_pe    = row.get("BEST_PE_RATIO")
+            ev_ebitda = row.get("BEST_EV_TO_BEST_EBITDA")
+            px_last   = row.get("PX_LAST")
+            mkt_cap   = row.get("CUR_MKT_CAP")
+
+            # Skip if no meaningful valuation data
+            if fwd_pe is None and ev_ebitda is None:
+                continue
+
+            try:
+                cur.execute("""
+                    INSERT INTO valuation_history
+                        (ticker, snapshot_date, fwd_pe, ev_ebitda, px_last, market_cap)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (ticker, snapshot_date) DO UPDATE SET
+                        fwd_pe    = EXCLUDED.fwd_pe,
+                        ev_ebitda = EXCLUDED.ev_ebitda,
+                        px_last   = EXCLUDED.px_last,
+                        market_cap = EXCLUDED.market_cap
+                """, (ticker, today, fwd_pe, ev_ebitda, px_last, mkt_cap))
+                inserted += 1
+            except Exception as e:
+                log.error(f"Valuation history insert failed for {ticker}: {e}")
+                conn.rollback()
+                continue
+
+    conn.commit()
+    log.info(f"Valuation history: {inserted} snapshots written for {today}")
+    return inserted
+
+
 def main():
     log.info("=== Kabuten 5.0 Bloomberg Sync ===")
     log.info(f"Started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    log.info(f"Fields: {len(FIELDS_CORE)} core + {len(FIELDS_EXPANDED)} expanded = {len(FIELDS)} total")
 
-    # Connect to DB
     try:
         conn = get_db_connection()
         log.info("Connected to Neon Postgres")
@@ -290,7 +403,6 @@ def main():
         sys.exit(f"DB connection failed: {e}")
 
     try:
-        # Load companies
         companies = load_companies(conn)
         if not companies:
             log.warning("No companies with bbg_ticker found. Run the seed API first.")
@@ -298,16 +410,19 @@ def main():
 
         bbg_tickers = [c['bbg_ticker'] for c in companies]
 
-        # Fetch from Bloomberg
         try:
             bloomberg_results = fetch_bloomberg_data(bbg_tickers)
         except Exception as e:
             sys.exit(f"Bloomberg fetch failed: {e}")
 
-        # Upsert to DB
+        # Upsert main bloomberg_data table
         success, errors = upsert_bloomberg_data(conn, companies, bloomberg_results)
+        log.info(f"bloomberg_data: {success} updated, {errors} errors")
 
-        log.info(f"=== Sync complete: {success} updated, {errors} errors ===")
+        # Append valuation history snapshot
+        upsert_valuation_history(conn, companies, bloomberg_results)
+
+        log.info(f"=== Sync complete: {success} companies updated ===")
 
     finally:
         conn.close()

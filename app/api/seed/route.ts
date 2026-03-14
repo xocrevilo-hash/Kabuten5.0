@@ -18,6 +18,7 @@ export async function GET() {
   try {
     // ── 1. Drop tables in dependency order ──────────────────────
     await sql`DROP TABLE IF EXISTS earnings_transcripts CASCADE`;
+    await sql`DROP TABLE IF EXISTS valuation_history CASCADE`;
     await sql`DROP TABLE IF EXISTS bloomberg_data CASCADE`;
     await sql`DROP TABLE IF EXISTS podcast_summaries CASCADE`;
     await sql`DROP TABLE IF EXISTS heatmap_scans CASCADE`;
@@ -170,11 +171,42 @@ export async function GET() {
         ytd_return NUMERIC,
         dividend_yield NUMERIC,
         market_cap NUMERIC,
+        -- Expanded: earnings actuals
+        actual_eps_last  NUMERIC,
+        actual_rev_last  NUMERIC,
+        eps_surprise_pct NUMERIC,
+        rev_surprise_pct NUMERIC,
+        last_report_date DATE,
+        guidance_eps_hi  NUMERIC,
+        guidance_eps_lo  NUMERIC,
+        -- Expanded: EPS revision momentum
+        eps_rev_1m   NUMERIC,
+        eps_rev_3m   NUMERIC,
+        rev_rev_1m   NUMERIC,
+        rev_rev_3m   NUMERIC,
+        est_up_1m    INTEGER,
+        est_down_1m  INTEGER,
+        best_eps_ntm NUMERIC,
         updated_at TIMESTAMPTZ DEFAULT NOW()
       )
     `;
 
     await sql`CREATE UNIQUE INDEX idx_bloomberg_ticker ON bloomberg_data(ticker)`;
+
+    await sql`
+      CREATE TABLE valuation_history (
+        id            SERIAL PRIMARY KEY,
+        ticker        TEXT NOT NULL,
+        snapshot_date DATE NOT NULL,
+        fwd_pe        NUMERIC,
+        ev_ebitda     NUMERIC,
+        px_last       NUMERIC,
+        market_cap    NUMERIC,
+        UNIQUE(ticker, snapshot_date)
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_val_hist_ticker ON valuation_history(ticker)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_val_hist_date   ON valuation_history(snapshot_date DESC)`;
 
     await sql`
       CREATE TABLE earnings_transcripts (
@@ -260,6 +292,7 @@ export async function GET() {
           'heatmap_scans',
           'podcast_summaries',
           'bloomberg_data',
+          'valuation_history',
           'earnings_transcripts',
         ],
       },
