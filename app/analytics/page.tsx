@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 
 // ─── palette ────────────────────────────────────────────────────────────────
 const G = {
