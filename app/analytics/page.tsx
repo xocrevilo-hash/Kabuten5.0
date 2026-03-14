@@ -32,15 +32,24 @@ interface CompanyInfo { ticker: string; name: string; sector: string; agent_key:
 interface ChatMessage { role: 'user' | 'assistant'; content: string }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
-const fmt = (v: number | null | undefined, decimals = 1, suffix = '') =>
-  v == null ? '—' : `${v.toFixed(decimals)}${suffix}`;
+const toNum = (v: unknown): number | null => {
+  if (v == null) return null;
+  const n = typeof v === 'number' ? v : parseFloat(String(v));
+  return isFinite(n) ? n : null;
+};
 
-const fmtMktCap = (v: number | null) => {
-  if (v == null) return '—';
-  if (v >= 1e12) return `$${(v / 1e12).toFixed(2)}T`;
-  if (v >= 1e9)  return `$${(v / 1e9).toFixed(1)}B`;
-  if (v >= 1e6)  return `$${(v / 1e6).toFixed(0)}M`;
-  return `$${v.toFixed(0)}`;
+const fmt = (v: unknown, decimals = 1, suffix = '') => {
+  const n = toNum(v);
+  return n == null ? '—' : `${n.toFixed(decimals)}${suffix}`;
+};
+
+const fmtMktCap = (v: unknown) => {
+  const n = toNum(v);
+  if (n == null) return '—';
+  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
+  if (n >= 1e9)  return `$${(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6)  return `$${(n / 1e6).toFixed(0)}M`;
+  return `$${n.toFixed(0)}`;
 };
 
 // ─── sub-components ──────────────────────────────────────────────────────────
@@ -261,8 +270,8 @@ function AnalystRatings({ bbg }: { bbg: BloombergData }) {
 
 function ValuationPanel({ bbg }: { bbg: BloombergData }) {
   const rows = [
-    { label: 'Fwd P/E',   value: bbg.fwd_pe,    color: G.green },
-    { label: 'EV/EBITDA', value: bbg.ev_ebitda,  color: G.blue },
+    { label: 'Fwd P/E',   value: toNum(bbg.fwd_pe),   color: G.green },
+    { label: 'EV/EBITDA', value: toNum(bbg.ev_ebitda), color: G.blue },
   ].filter(r => r.value != null);
   if (rows.length === 0) return null;
   const maxVal = Math.max(...rows.map(r => r.value!)) * 1.2;
