@@ -54,10 +54,42 @@ Be Socratic. Challenge the portfolio manager's thinking. Ask probing questions. 
 
 You are chatting with OC (portfolio manager).`;
   } else {
-    // Load current brief for sector agents
+    // Load current brief + latest earnings transcripts for sector agents
     const [brief] = await sql`
       SELECT * FROM agent_briefs WHERE agent_key = ${agentKey}
     `;
+
+    const transcripts = await sql`
+      SELECT DISTINCT ON (ticker)
+        ticker, fiscal_period, report_date,
+        vs_consensus, guidance, management_tone, key_themes, summary
+      FROM earnings_transcripts
+      WHERE agent_key = ${agentKey}
+      ORDER BY ticker, report_date DESC NULLS LAST
+    `;
+
+    interface TranscriptRow {
+      ticker: string;
+      fiscal_period: string;
+      report_date: string | null;
+      vs_consensus: string | null;
+      guidance: string | null;
+      management_tone: string | null;
+      key_themes: string[] | null;
+      summary: string | null;
+    }
+
+    const transcriptContext = (transcripts as TranscriptRow[]).length > 0
+      ? `\nLATEST EARNINGS TRANSCRIPTS (${(transcripts as TranscriptRow[]).length} companies):\n` +
+        (transcripts as TranscriptRow[]).map((t) =>
+          `\n[${t.ticker} — ${t.fiscal_period}${t.report_date ? ` (${t.report_date})` : ''}]` +
+          (t.management_tone ? `\nTone: ${t.management_tone}` : '') +
+          (t.vs_consensus   ? `\nResult: ${t.vs_consensus}` : '') +
+          (t.guidance       ? `\nGuidance: ${t.guidance}` : '') +
+          (t.key_themes?.length ? `\nThemes: ${t.key_themes.join(' · ')}` : '') +
+          (t.summary        ? `\nSummary: ${t.summary}` : '')
+        ).join('\n')
+      : '';
 
     systemPrompt = `You are ${agent.agent_name}, an elite AI sector analyst covering ${agent.sector_name}.
 
@@ -68,8 +100,8 @@ Thesis: ${brief.thesis}
 Key Drivers: ${JSON.stringify(brief.drivers || [])}
 Key Risks: ${JSON.stringify(brief.risks || [])}
 Ratings: ${JSON.stringify(brief.ratings || {})}` : 'No published brief yet.'}
-
-You are chatting with OC (portfolio manager). Answer questions concisely using your knowledge and the context above. You can also reference recent news and market developments. Be analytical, precise, and direct — like a top-tier sell-side analyst.`;
+${transcriptContext}
+You are chatting with OC (portfolio manager). Answer questions concisely using your knowledge and the context above. When asked about a company's earnings, reference the transcript summaries above. You can also use web search for the latest news. Be analytical, precise, and direct — like a top-tier sell-side analyst.`;
   }
 
   // Build messages array (last 20 messages for context)

@@ -17,6 +17,7 @@ interface SeedCompany {
 export async function GET() {
   try {
     // ── 1. Drop tables in dependency order ──────────────────────
+    await sql`DROP TABLE IF EXISTS earnings_transcripts CASCADE`;
     await sql`DROP TABLE IF EXISTS bloomberg_data CASCADE`;
     await sql`DROP TABLE IF EXISTS podcast_summaries CASCADE`;
     await sql`DROP TABLE IF EXISTS heatmap_scans CASCADE`;
@@ -175,6 +176,30 @@ export async function GET() {
 
     await sql`CREATE UNIQUE INDEX idx_bloomberg_ticker ON bloomberg_data(ticker)`;
 
+    await sql`
+      CREATE TABLE earnings_transcripts (
+        id              SERIAL PRIMARY KEY,
+        ticker          TEXT NOT NULL,
+        agent_key       TEXT REFERENCES sector_agents(agent_key),
+        fiscal_period   TEXT NOT NULL DEFAULT 'Latest',
+        report_date     DATE,
+        revenue_actual  NUMERIC,
+        revenue_unit    TEXT,
+        eps_actual      NUMERIC,
+        vs_consensus    TEXT,
+        guidance        TEXT,
+        management_tone TEXT,
+        key_themes      TEXT[] DEFAULT '{}',
+        summary         TEXT,
+        source_url      TEXT,
+        scanned_at      TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(ticker, fiscal_period)
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_transcripts_ticker ON earnings_transcripts(ticker)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_transcripts_agent ON earnings_transcripts(agent_key)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_transcripts_date ON earnings_transcripts(report_date DESC NULLS LAST)`;
+
     // ── 3. Seed sector agents ────────────────────────────────────
     for (const agent of AGENTS) {
       await sql`
@@ -235,6 +260,7 @@ export async function GET() {
           'heatmap_scans',
           'podcast_summaries',
           'bloomberg_data',
+          'earnings_transcripts',
         ],
       },
     });
