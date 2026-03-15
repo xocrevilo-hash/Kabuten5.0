@@ -245,47 +245,36 @@ export async function GET() {
     }
     // Remove any sector_agents rows no longer in config (e.g. renamed agents)
     // Must null-out FK references first to avoid constraint violations
-    await sql`
-      UPDATE companies SET agent_key = NULL
-      WHERE agent_key NOT IN ${sql(activeKeys)}
-    `;
-    await sql`
-      DELETE FROM brief_proposals  WHERE agent_key NOT IN ${sql(activeKeys)}
-    `;
-    await sql`
-      DELETE FROM agent_briefs     WHERE agent_key NOT IN ${sql(activeKeys)}
-    `;
-    await sql`
-      DELETE FROM agent_threads    WHERE agent_key NOT IN ${sql(activeKeys)}
-    `;
-    await sql`
-      DELETE FROM sector_agents    WHERE agent_key NOT IN ${sql(activeKeys)}
-    `;
+    await sql`UPDATE companies      SET agent_key = NULL WHERE NOT (agent_key = ANY(${activeKeys}))`;
+    await sql`DELETE FROM brief_proposals WHERE NOT (agent_key = ANY(${activeKeys}))`;
+    await sql`DELETE FROM agent_briefs    WHERE NOT (agent_key = ANY(${activeKeys}))`;
+    await sql`DELETE FROM agent_threads   WHERE NOT (agent_key = ANY(${activeKeys}))`;
+    await sql`DELETE FROM sector_agents   WHERE NOT (agent_key = ANY(${activeKeys}))`;
 
-    // ── 3. Seed companies (skip existing, update bbg_ticker) ─────
+    // ── 3. Seed companies (upsert without requiring UNIQUE constraint) ──
     const companies = seedData as SeedCompany[];
     for (const company of companies) {
-      await sql`
-        INSERT INTO companies (name, ticker, bbg_ticker, exchange, country, sector, agent_key, classification)
-        VALUES (
-          ${company.name},
-          ${company.ticker},
-          ${company.bbg_ticker},
-          ${company.exchange},
-          ${company.country},
-          ${company.sector},
-          ${company.agent_key},
-          ${company.classification}
-        )
-        ON CONFLICT (ticker) DO UPDATE SET
-          bbg_ticker = EXCLUDED.bbg_ticker,
-          name = EXCLUDED.name,
-          exchange = EXCLUDED.exchange,
-          country = EXCLUDED.country,
-          sector = EXCLUDED.sector,
-          agent_key = EXCLUDED.agent_key,
-          classification = EXCLUDED.classification
+      const updated = await sql`
+        UPDATE companies SET
+          name           = ${company.name},
+          bbg_ticker     = ${company.bbg_ticker},
+          exchange       = ${company.exchange},
+          country        = ${company.country},
+          sector         = ${company.sector},
+          agent_key      = ${company.agent_key},
+          classification = ${company.classification}
+        WHERE ticker = ${company.ticker}
       `;
+      if (updated.count === 0) {
+        await sql`
+          INSERT INTO companies (name, ticker, bbg_ticker, exchange, country, sector, agent_key, classification)
+          VALUES (
+            ${company.name}, ${company.ticker}, ${company.bbg_ticker},
+            ${company.exchange}, ${company.country}, ${company.sector},
+            ${company.agent_key}, ${company.classification}
+          )
+        `;
+      }
     }
 
     // ── 4. Init agent_briefs & agent_threads (skip existing) ─────
