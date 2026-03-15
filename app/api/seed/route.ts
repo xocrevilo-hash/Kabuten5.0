@@ -264,8 +264,9 @@ export async function GET() {
           agent_key      = ${company.agent_key},
           classification = ${company.classification}
         WHERE ticker = ${company.ticker}
+        RETURNING id
       `;
-      if (updated.count === 0) {
+      if (updated.length === 0) {
         await sql`
           INSERT INTO companies (name, ticker, bbg_ticker, exchange, country, sector, agent_key, classification)
           VALUES (
