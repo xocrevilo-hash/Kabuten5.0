@@ -60,7 +60,7 @@ export const AGENTS: AgentConfig[] = [
     sector_name: 'Elon Musk Portfolio',
     colour: 'red',
     hasSweep: true,
-    tickers: ['TSLA'],
+    tickers: ['TSLA', 'SPACEX.PRIV', 'STARLINK.PRIV', 'NEURALINK.PRIV', 'OPTIMUS.PRIV', 'BORING.PRIV', 'TERAFAB.PRIV'],
     companies: ['Tesla', 'SpaceX', 'Starlink', 'Neuralink', 'Optimus', 'Boring Company', 'Terafab'],
   },
   {
