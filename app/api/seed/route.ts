@@ -298,6 +298,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
+      version: 'v4-no-onconflict',
       summary: {
         agents_seeded: Number(agentCount[0].count),
         companies_seeded: Number(companyCount[0].count),
