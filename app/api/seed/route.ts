@@ -225,6 +225,12 @@ export async function GET() {
     await sql`CREATE INDEX IF NOT EXISTS idx_transcripts_agent ON earnings_transcripts(agent_key)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_transcripts_date ON earnings_transcripts(report_date DESC NULLS LAST)`;
 
+    // ── 1b. Ensure UNIQUE constraints exist (idempotent for live DBs) ────
+    await sql`ALTER TABLE sector_agents ADD CONSTRAINT IF NOT EXISTS sector_agents_agent_key_key UNIQUE (agent_key)`;
+    await sql`ALTER TABLE companies     ADD CONSTRAINT IF NOT EXISTS companies_ticker_key        UNIQUE (ticker)`;
+    await sql`ALTER TABLE agent_briefs  ADD CONSTRAINT IF NOT EXISTS agent_briefs_agent_key_key  UNIQUE (agent_key)`;
+    await sql`ALTER TABLE agent_threads ADD CONSTRAINT IF NOT EXISTS agent_threads_agent_key_key UNIQUE (agent_key)`;
+
     // ── 2. Seed sector agents (upsert name/sector; remove stale keys) ────
     const activeKeys = AGENTS.map(a => a.agent_key);
     for (const agent of AGENTS) {
