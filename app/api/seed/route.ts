@@ -225,14 +225,36 @@ export async function GET() {
     await sql`CREATE INDEX IF NOT EXISTS idx_transcripts_agent ON earnings_transcripts(agent_key)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_transcripts_date ON earnings_transcripts(report_date DESC NULLS LAST)`;
 
-    // ── 2. Seed sector agents (skip existing) ────────────────────
+    // ── 2. Seed sector agents (upsert name/sector; remove stale keys) ────
+    const activeKeys = AGENTS.map(a => a.agent_key);
     for (const agent of AGENTS) {
       await sql`
         INSERT INTO sector_agents (agent_key, agent_name, sector_name, colour)
         VALUES (${agent.agent_key}, ${agent.agent_name}, ${agent.sector_name}, ${agent.colour})
-        ON CONFLICT (agent_key) DO NOTHING
+        ON CONFLICT (agent_key) DO UPDATE SET
+          agent_name  = EXCLUDED.agent_name,
+          sector_name = EXCLUDED.sector_name,
+          colour      = EXCLUDED.colour
       `;
     }
+    // Remove any sector_agents rows no longer in config (e.g. renamed agents)
+    // Must null-out FK references first to avoid constraint violations
+    await sql`
+      UPDATE companies SET agent_key = NULL
+      WHERE agent_key NOT IN ${sql(activeKeys)}
+    `;
+    await sql`
+      DELETE FROM brief_proposals  WHERE agent_key NOT IN ${sql(activeKeys)}
+    `;
+    await sql`
+      DELETE FROM agent_briefs     WHERE agent_key NOT IN ${sql(activeKeys)}
+    `;
+    await sql`
+      DELETE FROM agent_threads    WHERE agent_key NOT IN ${sql(activeKeys)}
+    `;
+    await sql`
+      DELETE FROM sector_agents    WHERE agent_key NOT IN ${sql(activeKeys)}
+    `;
 
     // ── 3. Seed companies (skip existing, update bbg_ticker) ─────
     const companies = seedData as SeedCompany[];
