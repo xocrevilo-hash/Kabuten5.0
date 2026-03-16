@@ -5,7 +5,7 @@ import { NextRequest } from 'next/server';
 const AGENT_CHAIN = [
   'APEX', 'DRAGON', 'ELON', 'FERRO', 'FORGE_CN', 'FORGE_JP', 'FORGE_US', 'HELIX', 'INDRA',
   'LAYER', 'LAYER_TW', 'CHIP', 'MARIO', 'MASA', 'NOVA', 'OPTIM', 'ORIENT', 'ORIENT_MID',
-  'PHOTON', 'PILBARA', 'RACK', 'ROCKET', 'SURGE', 'SYNTH', 'TERRA', 'TIDE', 'VOLT',
+  'PHOTON', 'IRONY', 'RACK', 'ROCKET', 'SURGE', 'SYNTH', 'TERRA', 'TIDE', 'VOLT',
 ];
 
 async function handleSweep(request: NextRequest) {

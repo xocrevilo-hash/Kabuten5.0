@@ -5,9 +5,9 @@ import sql from '@/lib/db';
 
 // All sweepable agents in chain order
 const AGENT_CHAIN = [
-  'APEX', 'DRAGON', 'FERRO', 'FORGE', 'FORGE_JP', 'HELIX', 'INDRA', 'LAYER', 'CHIP',
-  'MARIO', 'MASA', 'NOVA', 'OPTIM', 'ORIENT', 'ORIENT_MID', 'PHOTON', 'PILBARA',
-  'PIXEL', 'RACK', 'ROCKET', 'SURGE', 'SYNTH', 'TERRA', 'TIDE', 'VOLT',
+  'APEX', 'DRAGON', 'ELON', 'FERRO', 'FORGE_CN', 'FORGE_JP', 'FORGE_US', 'HELIX', 'INDRA',
+  'LAYER', 'LAYER_TW', 'CHIP', 'MARIO', 'MASA', 'NOVA', 'OPTIM', 'ORIENT', 'ORIENT_MID',
+  'PHOTON', 'IRONY', 'RACK', 'ROCKET', 'SURGE', 'SYNTH', 'TERRA', 'TIDE', 'VOLT',
 ];
 
 function isAuthorized(req: NextRequest): boolean {
