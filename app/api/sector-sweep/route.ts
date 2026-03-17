@@ -260,20 +260,30 @@ function isAuthorized(request: NextRequest): boolean {
   return false;
 }
 
-async function chainToNext(nextAgent: string | null, cronSecret: string | undefined) {
-  if (!nextAgent) return;
-  // Await the dispatch synchronously before returning — sweep-all returns in < 1s
-  // so this doesn't meaningfully delay the response, but guarantees the request
-  // is fully sent before this function exits (no fire-and-forget GC risk).
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://kabuten50.vercel.app';
+async function markQueueDone(agentKey: string) {
   try {
-    await fetch(`${baseUrl}/api/sweep-all?agent=${nextAgent}`, {
-      method: 'GET',
-      headers: { 'authorization': `Bearer ${cronSecret ?? ''}` },
-    });
-    console.log(`[sector-sweep] Chained → ${nextAgent}`);
+    const today = new Date().toISOString().slice(0, 10);
+    await sql`
+      UPDATE sweep_queue
+      SET status = 'done', completed_at = NOW()
+      WHERE agent_key = ${agentKey} AND sweep_date = ${today} AND status = 'running'
+    `;
   } catch (err) {
-    console.error(`[sector-sweep] chain → ${nextAgent}:`, err);
+    // Non-fatal — queue update failure should not prevent sweep result being returned
+    console.error(`[sector-sweep] queue done update failed for ${agentKey}:`, err);
+  }
+}
+
+async function markQueueFailed(agentKey: string, error: string) {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    await sql`
+      UPDATE sweep_queue
+      SET status = 'failed', completed_at = NOW(), error = ${error.slice(0, 500)}
+      WHERE agent_key = ${agentKey} AND sweep_date = ${today} AND status = 'running'
+    `;
+  } catch (err) {
+    console.error(`[sector-sweep] queue failed update failed for ${agentKey}:`, err);
   }
 }
 
@@ -284,7 +294,6 @@ export async function POST(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const agentParam = searchParams.get('agent')?.toUpperCase();
-  const nextAgent = searchParams.get('next') ?? null;
 
   if (!agentParam) {
     return NextResponse.json({ error: 'Missing agent parameter' }, { status: 400 });
@@ -317,20 +326,26 @@ export async function POST(req: NextRequest) {
     } | undefined;
 
     const batchedAgents: Record<string, string[][]> = {
+      // FORGE_JP has 10 companies — split into 2 parallel batches of 5
+      // to stay comfortably within Vercel's 300s function limit.
+      // Sequential execution would take ~6 minutes and time out.
       forge_jp: FORGE_JP_BATCHES,
     };
 
     if (agentKey in batchedAgents) {
-      // Batched sweep: 10 companies → 2 × 5
+      // Batched sweep: run all batches in PARALLEL (not sequential) to avoid
+      // exceeding the 300s Vercel timeout that would break the old chain.
       const batches = batchedAgents[agentKey];
-      for (let i = 0; i < batches.length; i++) {
-        const batchTickers = batches[i];
+      const batchPromises = batches.map(batchTickers => {
         const batchCompanies = batchTickers.map(t => {
           const idx = agent.tickers.indexOf(t);
           return idx >= 0 ? agent.companies[idx] : t;
         });
+        return runSweep(agentKey, batchTickers, batchCompanies);
+      });
 
-        const result = await runSweep(agentKey, batchTickers, batchCompanies);
+      const batchResults = await Promise.all(batchPromises);
+      for (const result of batchResults) {
         allCompanyResults = [...allCompanyResults, ...result.companies];
         allSignals = [...allSignals, ...result.cross_company_signals];
         if (result.brief_changed) {
@@ -422,8 +437,8 @@ export async function POST(req: NextRequest) {
       WHERE agent_key = ${agentKey}
     `;
 
-    // Chain to the next agent now that this sweep is complete
-    await chainToNext(nextAgent, process.env.CRON_SECRET);
+    // Mark this agent done in the queue — sweep-worker will dispatch the next one
+    await markQueueDone(agentKey);
 
     return NextResponse.json({
       success: true,
@@ -440,11 +455,12 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('Sweep error:', error);
-    // Still chain to next agent so one failure doesn't kill the whole run
-    await chainToNext(nextAgent, process.env.CRON_SECRET);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    // Mark failed in queue — sweep-worker will move on to the next agent
+    await markQueueFailed(agentKey, errorMsg);
     return NextResponse.json({
       error: 'Sweep failed',
-      details: error instanceof Error ? error.message : String(error),
+      details: errorMsg,
     }, { status: 500 });
   }
 }

@@ -225,6 +225,23 @@ export async function GET() {
     await sql`CREATE INDEX IF NOT EXISTS idx_transcripts_agent ON earnings_transcripts(agent_key)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_transcripts_date ON earnings_transcripts(report_date DESC NULLS LAST)`;
 
+    await sql`
+      CREATE TABLE IF NOT EXISTS sweep_queue (
+        id           SERIAL PRIMARY KEY,
+        agent_key    TEXT NOT NULL,
+        sweep_date   DATE NOT NULL,
+        sweep_order  INT  NOT NULL,
+        status       TEXT NOT NULL DEFAULT 'pending',
+        queued_at    TIMESTAMPTZ DEFAULT NOW(),
+        started_at   TIMESTAMPTZ,
+        completed_at TIMESTAMPTZ,
+        error        TEXT,
+        UNIQUE(agent_key, sweep_date)
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_sweep_queue_date ON sweep_queue(sweep_date DESC)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_sweep_queue_status ON sweep_queue(status, sweep_date)`;
+
     // ── 1b. Ensure UNIQUE indexes exist (idempotent — safe on live DBs) ─
     await sql`CREATE UNIQUE INDEX IF NOT EXISTS sector_agents_agent_key_idx ON sector_agents (agent_key)`;
     await sql`CREATE UNIQUE INDEX IF NOT EXISTS companies_ticker_idx        ON companies     (ticker)`;
@@ -317,6 +334,7 @@ export async function GET() {
           'bloomberg_data',
           'valuation_history',
           'earnings_transcripts',
+          'sweep_queue',
         ],
       },
     });

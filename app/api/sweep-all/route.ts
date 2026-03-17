@@ -1,59 +1,46 @@
 export const dynamic = 'force-dynamic';
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import sql from '@/lib/db';
+import { AGENTS } from '@/lib/agents-config';
 
-const AGENT_CHAIN = [
-  'APEX', 'DRAGON', 'ELON', 'FERRO', 'FORGE_CN', 'FORGE_JP', 'FORGE_US', 'HELIX', 'INDRA',
-  'LAYER', 'LAYER_TW', 'CHIP', 'MARIO', 'MASA', 'NOVA', 'OPTIM', 'ORIENT', 'ORIENT_MID',
-  'PHOTON', 'IRONY', 'RACK', 'ROCKET', 'SURGE', 'SYNTH', 'TERRA', 'TIDE', 'VOLT',
-];
+// Ordered list of sweepable agents (hasSweep=true), in sweep priority order.
+// This is the single source of truth for sweep ordering.
+const SWEEP_ORDER = AGENTS.filter(a => a.hasSweep).map(a => a.agent_key);
 
-async function handleSweep(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
+function isAuthorized(req: NextRequest): boolean {
+  const authHeader = req.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!cronSecret) return true;
+  return authHeader === `Bearer ${cronSecret}`;
+}
+
+async function handleSeed(req: NextRequest) {
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { searchParams } = new URL(request.url);
-  const currentAgent = searchParams.get('agent') || AGENT_CHAIN[0];
-  const currentIndex = AGENT_CHAIN.indexOf(currentAgent);
-  const nextAgent = AGENT_CHAIN[currentIndex + 1] ?? null;
+  const today = new Date().toISOString().slice(0, 10);
+  let seeded = 0;
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://kabuten50.vercel.app';
+  for (let i = 0; i < SWEEP_ORDER.length; i++) {
+    const result = await sql`
+      INSERT INTO sweep_queue (agent_key, sweep_date, sweep_order, status)
+      VALUES (${SWEEP_ORDER[i]}, ${today}, ${i + 1}, 'pending')
+      ON CONFLICT (agent_key, sweep_date) DO NOTHING
+    `;
+    // @ts-expect-error — neon sql returns count on insert
+    if (result.count > 0 || result.length > 0) seeded++;
+  }
 
-  // Fire sector-sweep for this agent, passing the next agent so it can self-chain
-  // when it finishes. We await a short delay after the fetch to ensure the HTTP
-  // request is actually sent before Vercel freezes the function on response.
-  const nextParam = nextAgent ? `&next=${nextAgent}` : '';
-  const dispatchPromise = fetch(`${baseUrl}/api/sector-sweep?agent=${currentAgent}${nextParam}`, {
-    method: 'POST',
-    headers: {
-      'authorization': `Bearer ${cronSecret}`,
-      'content-type': 'application/json',
-    },
-  }).catch(err => console.error(`[sweep-all] dispatch ${currentAgent}:`, err));
-
-  // Yield to the event loop so the TCP connection is established before we return.
-  // Without this, Vercel can freeze the function before the outgoing request is sent.
-  await Promise.race([
-    dispatchPromise,
-    new Promise(r => setTimeout(r, 5000)), // max 5s wait — sector-sweep responds fast
-  ]);
-
-  console.log(`[sweep-all] Dispatched ${currentAgent} → next: ${nextAgent ?? 'DONE'}`);
-
-  return Response.json({
-    ok: true,
-    dispatched: currentAgent,
-    next: nextAgent ?? 'DONE',
-  });
+  console.log(`[sweep-all] Queue seeded: ${seeded} new / ${SWEEP_ORDER.length} total for ${today}`);
+  return NextResponse.json({ ok: true, seeded, total: SWEEP_ORDER.length, date: today });
 }
 
-export async function GET(request: NextRequest) {
-  return handleSweep(request);
+export async function GET(req: NextRequest) {
+  return handleSeed(req);
 }
 
-export async function POST(request: NextRequest) {
-  return handleSweep(request);
+export async function POST(req: NextRequest) {
+  return handleSeed(req);
 }
