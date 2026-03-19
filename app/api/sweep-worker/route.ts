@@ -39,18 +39,21 @@ async function handleWorker(req: NextRequest) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://kabuten50.vercel.app';
   const cronSecret = process.env.CRON_SECRET;
 
+  try {
   // ── 1. Recover stuck agents ──────────────────────────────────────────────
   // Any agent marked 'running' but started > STUCK_THRESHOLD minutes ago
   // has almost certainly been killed by Vercel's timeout. Mark it 'failed'
   // so the worker can proceed to the next agent.
+  // NOTE: use integer * INTERVAL arithmetic — avoid string concatenation
+  // with a parameterised integer which PostgreSQL rejects (no integer||text operator).
   const recovered = await sql`
     UPDATE sweep_queue
     SET status = 'failed',
-        error = 'timeout — Vercel killed the function after ${STUCK_THRESHOLD_MINUTES} min',
+        error = ${'timeout — stuck for >' + STUCK_THRESHOLD_MINUTES + ' min'},
         completed_at = NOW()
     WHERE status = 'running'
       AND sweep_date = ${today}
-      AND started_at < NOW() - (${STUCK_THRESHOLD_MINUTES} || ' minutes')::INTERVAL
+      AND started_at < NOW() - (${STUCK_THRESHOLD_MINUTES} * INTERVAL '1 minute')
     RETURNING agent_key
   `;
   if (recovered.length > 0) {
@@ -120,6 +123,12 @@ async function handleWorker(req: NextRequest) {
 
   console.log(`[sweep-worker] Dispatched ${agent_key}`);
   return NextResponse.json({ ok: true, status: 'dispatched', agent: agent_key });
+
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[sweep-worker] FATAL:', msg);
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+  }
 }
 
 export async function GET(req: NextRequest) {
