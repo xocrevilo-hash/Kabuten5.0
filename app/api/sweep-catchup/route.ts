@@ -53,6 +53,16 @@ async function handleCatchup(req: NextRequest) {
   const requeuedKeys = (requeued as any[]).map(r => r.agent_key as string);
   console.log(`[sweep-catchup] Re-queued ${requeued.length} agents: ${requeuedKeys.join(', ') || 'none'}`);
 
+  // If anything was re-queued, kick sweep-worker to restart the chain (fire-and-forget)
+  if (requeued.length > 0) {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://kabuten50.vercel.app';
+    const cronSecret = process.env.CRON_SECRET;
+    fetch(`${baseUrl}/api/sweep-worker`, {
+      method: 'GET',
+      headers: { authorization: `Bearer ${cronSecret ?? ''}` },
+    }).catch(err => console.error('[sweep-catchup] sweep-worker kick failed:', err));
+  }
+
   return NextResponse.json({
     ok: true,
     date: today,

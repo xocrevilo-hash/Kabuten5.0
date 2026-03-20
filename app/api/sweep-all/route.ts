@@ -34,6 +34,15 @@ async function handleSeed(req: NextRequest) {
   }
 
   console.log(`[sweep-all] Queue seeded: ${seeded} new / ${SWEEP_ORDER.length} total for ${today}`);
+
+  // Kick sweep-worker to start the chain (fire-and-forget)
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://kabuten50.vercel.app';
+  const cronSecret = process.env.CRON_SECRET;
+  fetch(`${baseUrl}/api/sweep-worker`, {
+    method: 'GET',
+    headers: { authorization: `Bearer ${cronSecret ?? ''}` },
+  }).catch(err => console.error('[sweep-all] sweep-worker kick failed:', err));
+
   return NextResponse.json({ ok: true, seeded, total: SWEEP_ORDER.length, date: today });
 }
 

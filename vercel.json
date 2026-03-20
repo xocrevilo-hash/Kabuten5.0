@@ -1,7 +1,6 @@
 {
   "crons": [
     { "path": "/api/sweep-all",         "schedule": "0 17 * * *"   },
-    { "path": "/api/sweep-worker",      "schedule": "*/5 * * * *"  },
     { "path": "/api/sweep-catchup",     "schedule": "0 22 * * *"   },
     { "path": "/api/transcripts/sweep", "schedule": "0 20 * * 1"   }
   ],

@@ -272,6 +272,19 @@ async function markQueueDone(agentKey: string) {
     // Non-fatal — queue update failure should not prevent sweep result being returned
     console.error(`[sector-sweep] queue done update failed for ${agentKey}:`, err);
   }
+
+  // Kick sweep-worker to pick up the next pending agent (fire-and-forget)
+  // This is how the chain propagates without needing a frequent cron job.
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://kabuten50.vercel.app';
+    const cronSecret = process.env.CRON_SECRET;
+    fetch(`${baseUrl}/api/sweep-worker`, {
+      method: 'GET',
+      headers: { authorization: `Bearer ${cronSecret ?? ''}` },
+    }).catch(err => console.error(`[sector-sweep] sweep-worker kick failed after ${agentKey}:`, err));
+  } catch {
+    // non-fatal
+  }
 }
 
 async function markQueueFailed(agentKey: string, error: string) {

@@ -1,7 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = req.headers.get('authorization') ?? '';
+  const cookie = req.cookies.get('kabuten-auth');
+  if (auth !== 'Bearer fingerthumb' && cookie?.value !== 'true') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const companies = await sql`
     SELECT
       c.*,

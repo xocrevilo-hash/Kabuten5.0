@@ -7,5 +7,6 @@
 $env:DATABASE_URL = "postgresql://neondb_owner:npg_Nrx0h7CWGIAS@ep-damp-fog-aiulq9qw-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 Write-Host "Starting Kabuten Bloomberg Sync — $(Get-Date)"
-& python "\\Mac\Home\Desktop\Kabuten5.0 20.29.52\scripts\bloomberg-sync.py" 2>&1 | Tee-Object -FilePath "\\Mac\Home\Desktop\Kabuten5.0 20.29.52\scripts\bloomberg-sync.log" -Append
+$env:PYTHONUNBUFFERED = "1"
+& python -u "\\Mac\Home\Desktop\Kabuten5.0 20.29.52\scripts\bloomberg-sync.py" 2>&1 | Tee-Object -FilePath "\\Mac\Home\Desktop\Kabuten5.0 20.29.52\scripts\bloomberg-sync.log" -Append
 Write-Host "Done — $(Get-Date)"

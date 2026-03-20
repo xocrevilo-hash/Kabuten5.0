@@ -72,7 +72,7 @@ FIELDS_CORE = [
     "YTD_RETURN",                # YTD return %
     "EQY_DVD_YLD_IND",           # Dividend yield
     "CUR_MKT_CAP",               # Market cap ($M)
-    "AVERAGE_VOLUME",            # Average daily volume (shares, 90D)
+    "VOLUME_AVG_20D",            # Average daily volume (shares, 20D) — more reliable globally than AVERAGE_VOLUME
 ]
 
 # Expanded fields — earnings actuals + revision momentum
@@ -111,6 +111,7 @@ FIELDS_EXPANDED = [
     "BEST_EBIT_HIGH",            # FY1 EBIT high estimate ($M)
     "BEST_EBIT_LOW",             # FY1 EBIT low estimate ($M)
     "CRNCY",                     # Trading currency (USD/JPY/EUR/etc.)
+    "PRICE_CHANGE_YTD_PCT",      # YTD price change % — fallback for markets where YTD_RETURN is null
 ]
 
 FIELDS = FIELDS_CORE + FIELDS_EXPANDED
@@ -146,7 +147,7 @@ DB_COLUMN_MAP = {
     "YTD_RETURN":               "ytd_return",
     "EQY_DVD_YLD_IND":          "dividend_yield",
     "CUR_MKT_CAP":              "market_cap",
-    "AVERAGE_VOLUME":           "avg_volume",
+    "VOLUME_AVG_20D":           "avg_volume",
     # Expanded fields
     "IS_EPS":                   "actual_eps_last",
     "SALES_REV_TURN":           "actual_rev_last",
@@ -309,6 +310,10 @@ def upsert_bloomberg_data(conn, companies: list, bloomberg_results: dict):
             for field, col in DB_COLUMN_MAP.items():
                 values[col] = row.get(field)
 
+            # YTD fallback: PRICE_CHANGE_YTD_PCT is more reliable for Japanese/Asian stocks
+            if values.get('ytd_return') is None and row.get('PRICE_CHANGE_YTD_PCT') is not None:
+                values['ytd_return'] = row.get('PRICE_CHANGE_YTD_PCT')
+
             try:
                 cur.execute("""
                     INSERT INTO bloomberg_data (
@@ -468,7 +473,7 @@ def upsert_valuation_history(conn, companies: list, bloomberg_results: dict):
 def main():
     log.info("=== Kabuten 5.0 Bloomberg Sync ===")
     log.info(f"Started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    log.info(f"Fields: {len(FIELDS_CORE)} core + {len(FIELDS_EXPANDED)} expanded = {len(FIELDS)} total (v6)")
+    log.info(f"Fields: {len(FIELDS_CORE)} core + {len(FIELDS_EXPANDED)} expanded = {len(FIELDS)} total (v7)")
 
     try:
         conn = get_db_connection()
