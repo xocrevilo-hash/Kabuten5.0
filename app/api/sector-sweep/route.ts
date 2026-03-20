@@ -200,7 +200,7 @@ OUTPUT (JSON only, no other text):
   const response = await anthropic.messages.create({
     model: 'claude-opus-4-5',
     max_tokens: 4000,
-    tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 10 }] as any,
+    tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 5 }] as any,
     system: `You are ${agent.agent_name}, an elite AI sector analyst. Always respond with valid JSON only in the format specified. No markdown, no code blocks, just raw JSON.`,
     messages: [{ role: 'user', content: sweepPrompt }],
   });
