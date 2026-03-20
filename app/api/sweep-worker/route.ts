@@ -57,7 +57,8 @@ async function handleWorker(req: NextRequest) {
     RETURNING agent_key
   `;
   if (recovered.length > 0) {
-    console.log(`[sweep-worker] Recovered stuck agents: ${recovered.map((r: { agent_key: string }) => r.agent_key).join(', ')}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    console.log(`[sweep-worker] Recovered stuck agents: ${(recovered as any[]).map(r => r.agent_key).join(', ')}`);
   }
 
   // ── 2. Back off if another agent is actively running ────────────────────

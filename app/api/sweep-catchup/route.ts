@@ -49,7 +49,8 @@ async function handleCatchup(req: NextRequest) {
     ORDER BY status
   `;
 
-  const requeuedKeys = requeued.map((r: { agent_key: string }) => r.agent_key);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const requeuedKeys = (requeued as any[]).map(r => r.agent_key as string);
   console.log(`[sweep-catchup] Re-queued ${requeued.length} agents: ${requeuedKeys.join(', ') || 'none'}`);
 
   return NextResponse.json({

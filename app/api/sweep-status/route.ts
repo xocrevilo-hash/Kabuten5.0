@@ -36,17 +36,19 @@ export async function GET() {
     ORDER BY sweep_order ASC
   `;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const r = rows as any[];
   const counts = {
-    total:   rows.length,
-    done:    rows.filter((r: { status: string }) => r.status === 'done').length,
-    running: rows.filter((r: { status: string }) => r.status === 'running').length,
-    pending: rows.filter((r: { status: string }) => r.status === 'pending').length,
-    failed:  rows.filter((r: { status: string }) => r.status === 'failed').length,
+    total:   r.length,
+    done:    r.filter(x => x.status === 'done').length,
+    running: r.filter(x => x.status === 'running').length,
+    pending: r.filter(x => x.status === 'pending').length,
+    failed:  r.filter(x => x.status === 'failed').length,
   };
 
   return NextResponse.json({
     date: today,
     summary: counts,
-    agents: rows,
+    agents: r,
   });
 }
