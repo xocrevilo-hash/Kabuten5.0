@@ -11,6 +11,7 @@ const PODCASTS: Record<string, string> = {
   'Big Technology Podcast':  'big-technology-podcast',
   'Bloomberg Tech':          'bloomberg-technology',
   'Hard Fork':               'hard-fork',
+  'No Priors':               'no-priors',
   'Odd Lots':                'odd-lots',
   'Semi-Doped':              'semi-doped',
   'The Circuit':             'the-circuit',
@@ -31,7 +32,7 @@ function isAuthorized(request: Request): boolean {
 async function scanPodcast(podcastName: string, slug: string): Promise<{
   episodeTitle: string;
   episodeDate: string;
-  bullets: string[];
+  bullets: Array<{ text: string; tag: string }>;
   tickers: string[];
   sourceUrl: string;
   hasRelevantContent: boolean;
@@ -42,10 +43,12 @@ Task: Find the most recent episode of "${podcastName}" and extract any discussio
 
 Search strategy (use at most 5 searches total — stop as soon as you have enough):
 1. Search: "${podcastName}" latest episode 2026
-2. If needed, try podscripts.co/podcasts/${slug} for a transcript
+2. If needed, try podscripts.co/podcasts/${slug} or metacast.app/podcast/${slug} for a transcript
 3. If needed, search X.com or Apple Podcasts for episode summaries
 
 If you find relevant content, summarise in up to 5 bullet points. Each bullet must be a concrete investment insight with specific data points, named companies, or concrete claims — no generic statements.
+
+For each bullet, assign the single most relevant tag from this list: AI, SEMIS, MACRO, CLOUD, EV, DEFENCE, OTHER.
 
 Extract any stock tickers mentioned (e.g. NVDA, 2330.TW, ASML).
 
@@ -53,7 +56,10 @@ Respond ONLY with valid JSON (no markdown fences, no preamble):
 {
   "episodeTitle": "exact episode title",
   "episodeDate": "YYYY-MM-DD",
-  "bullets": ["bullet1", "bullet2"],
+  "bullets": [
+    { "text": "bullet text", "tag": "AI" },
+    { "text": "bullet text", "tag": "SEMIS" }
+  ],
   "tickers": ["NVDA"],
   "sourceUrl": "https://...",
   "hasRelevantContent": true
@@ -139,7 +145,7 @@ export async function POST(request: Request) {
           ${show},
           ${result.episodeTitle},
           ${normalizeDate(result.episodeDate)},
-          ${result.bullets},
+          ${JSON.stringify(result.bullets)},
           ${result.tickers},
           ${result.sourceUrl},
           true,

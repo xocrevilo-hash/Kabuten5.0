@@ -243,7 +243,7 @@ OUTPUT (JSON only, no other text):
 }
 
 function isAuthorized(request: NextRequest): boolean {
-  // Path 1: Vercel cron or sweep-all daisy-chain (server-to-server)
+  // Path 1: Vercel cron (server-to-server)
   const authHeader = request.headers.get('authorization') ?? '';
   if (authHeader === `Bearer ${process.env.CRON_SECRET}`) return true;
 
@@ -260,52 +260,20 @@ function isAuthorized(request: NextRequest): boolean {
   return false;
 }
 
-async function markQueueDone(agentKey: string) {
-  try {
-    const today = new Date().toISOString().slice(0, 10);
-    await sql`
-      UPDATE sweep_queue
-      SET status = 'done', completed_at = NOW()
-      WHERE agent_key = ${agentKey} AND sweep_date = ${today} AND status = 'running'
-    `;
-  } catch (err) {
-    // Non-fatal — queue update failure should not prevent sweep result being returned
-    console.error(`[sector-sweep] queue done update failed for ${agentKey}:`, err);
-  }
-
-  // Kick sweep-worker to pick up the next pending agent (fire-and-forget)
-  // This is how the chain propagates without needing a frequent cron job.
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://kabuten50.vercel.app';
-    const cronSecret = process.env.CRON_SECRET;
-    fetch(`${baseUrl}/api/sweep-worker`, {
-      method: 'GET',
-      headers: { authorization: `Bearer ${cronSecret ?? ''}` },
-    }).catch(err => console.error(`[sector-sweep] sweep-worker kick failed after ${agentKey}:`, err));
-  } catch {
-    // non-fatal
-  }
-}
-
-async function markQueueFailed(agentKey: string, error: string) {
-  try {
-    const today = new Date().toISOString().slice(0, 10);
-    await sql`
-      UPDATE sweep_queue
-      SET status = 'failed', completed_at = NOW(), error = ${error.slice(0, 500)}
-      WHERE agent_key = ${agentKey} AND sweep_date = ${today} AND status = 'running'
-    `;
-  } catch (err) {
-    console.error(`[sector-sweep] queue failed update failed for ${agentKey}:`, err);
-  }
-}
-
 export async function POST(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const isManual = searchParams.get('manual') === 'true';
+
+  // Saturday skip — no sweep on Saturdays, unless triggered manually
+  const day = new Date().getDay(); // 0=Sun, 6=Sat
+  if (day === 6 && !isManual) {
+    return NextResponse.json({ skipped: true, reason: 'Saturday' });
+  }
+
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { searchParams } = new URL(req.url);
   const agentParam = searchParams.get('agent')?.toUpperCase();
 
   if (!agentParam) {
@@ -445,13 +413,10 @@ export async function POST(req: NextRequest) {
     const updatedHistory = [...history, sweepMessage];
 
     await sql`
-      UPDATE agent_threads 
+      UPDATE agent_threads
       SET thread_history = ${JSON.stringify(updatedHistory)}::jsonb
       WHERE agent_key = ${agentKey}
     `;
-
-    // Mark this agent done in the queue — sweep-worker will dispatch the next one
-    await markQueueDone(agentKey);
 
     return NextResponse.json({
       success: true,
@@ -469,8 +434,6 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Sweep error:', error);
     const errorMsg = error instanceof Error ? error.message : String(error);
-    // Mark failed in queue — sweep-worker will move on to the next agent
-    await markQueueFailed(agentKey, errorMsg);
     return NextResponse.json({
       error: 'Sweep failed',
       details: errorMsg,

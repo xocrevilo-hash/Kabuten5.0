@@ -160,7 +160,7 @@ export default function SectorsPage() {
     if (!activeKey || sweeping) return;
     setSweeping(true);
     try {
-      const res = await fetch(`/api/sector-sweep?agent=${activeKey.toUpperCase()}`, {
+      const res = await fetch(`/api/sector-sweep?agent=${activeKey.toUpperCase()}&manual=true`, {
         method: 'POST',
         credentials: 'include',
       });
